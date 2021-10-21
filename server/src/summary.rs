@@ -1,4 +1,4 @@
-use podreplay_lib::{parse_feed, FeedSummary};
+use podreplay_lib::{Feed, FeedSummary};
 use serde::Deserialize;
 use warp::reply::{json, Json};
 
@@ -10,7 +10,7 @@ pub struct SummaryQuery {
 pub fn get(query: SummaryQuery) -> Json {
     dbg!(query.uri);
     let source = include_bytes!("serial.xml");
-    let feed = parse_feed(source, Some("https://feeds.simplecast.com/xl36XBC2"));
+    let feed = Feed::from_source(source, Some("https://feeds.simplecast.com/xl36XBC2"));
     let summary: FeedSummary = feed.into();
     json(&summary)
 }
