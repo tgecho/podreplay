@@ -28,8 +28,10 @@ pub struct FeedSummary {
 
 #[derive(Serialize)]
 pub struct FeedSummaryItem {
+    id: String,
     title: Option<String>,
-    timestamp: i64,
+    published: i64,
+    noticed: i64,
 }
 
 impl From<Feed> for FeedSummary {
@@ -38,14 +40,17 @@ impl From<Feed> for FeedSummary {
         let mut items = Vec::with_capacity(feed.feed.entries.len());
         for entry in feed.feed.entries {
             if let Some(timestamp) = entry.published.or(entry.updated) {
+                let ts = timestamp.timestamp();
                 items.push(FeedSummaryItem {
+                    id: entry.id,
                     title: entry.title.map(|t| t.content),
-                    timestamp: timestamp.timestamp(),
+                    published: ts,
+                    noticed: ts,
                 });
             }
         }
         items.reverse();
-        items.sort_by_key(|i| i.timestamp);
+        items.sort_by_key(|i| i.published);
         FeedSummary {
             title,
             uri: feed.uri,
