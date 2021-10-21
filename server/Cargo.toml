@@ -1,0 +1,17 @@
+[package]
+name = "server"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+podreplay_lib = {path = "../lib"}
+tokio = { version = "1.12.0", features=["full"]}
+hyper = { version = "0.14.13", features=["full"]}
+tracing = "0.1.28"
+tracing-subscriber = "0.2.24"
+warp = "0.3.1"
+serde = {version = "1.0.130", features=["derive"]}
+
+[features]
