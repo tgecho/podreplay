@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use feed_rs::{model::Feed as ParsedFeed, parser};
 use serde::Serialize;
 
@@ -21,17 +22,17 @@ impl Feed {
 
 #[derive(Serialize)]
 pub struct FeedSummary {
-    title: Option<String>,
-    uri: Option<String>,
-    items: Vec<FeedSummaryItem>,
+    pub title: Option<String>,
+    pub uri: Option<String>,
+    pub items: Vec<FeedSummaryItem>,
 }
 
 #[derive(Serialize)]
 pub struct FeedSummaryItem {
-    id: String,
-    title: Option<String>,
-    published: i64,
-    noticed: i64,
+    pub id: String,
+    pub title: Option<String>,
+    pub published: DateTime<Utc>,
+    pub noticed: DateTime<Utc>,
 }
 
 impl From<Feed> for FeedSummary {
@@ -40,12 +41,11 @@ impl From<Feed> for FeedSummary {
         let mut items = Vec::with_capacity(feed.feed.entries.len());
         for entry in feed.feed.entries {
             if let Some(timestamp) = entry.published.or(entry.updated) {
-                let ts = timestamp.timestamp();
                 items.push(FeedSummaryItem {
                     id: entry.id,
                     title: entry.title.map(|t| t.content),
-                    published: ts,
-                    noticed: ts,
+                    published: timestamp,
+                    noticed: timestamp,
                 });
             }
         }

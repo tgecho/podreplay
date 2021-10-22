@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 chrono = { version = "0.4.19", features = ["serde"] }
+chronoutil = "0.2.3"
 feed-rs = "1.0.0"
-rss = "1.10.0"
+rss = "2.0.0"
 serde = "1.0.130"
