@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use chrono::{DateTime, Utc};
 use chronoutil::DateRule;
 
@@ -9,6 +11,12 @@ pub struct ReplayedItem {
     timestamp: DateTime<Utc>,
 }
 
+#[derive(Debug)]
+struct Scheduled<'a> {
+    replayed: bool,
+    items: Vec<&'a FeedSummaryItem>,
+}
+
 // TODO: Consider an option to stay on replay schedule after catching up, even if it means skipping days
 // TODO: Add handling for rescheduled episodes
 pub fn replay_feed(
@@ -16,23 +24,43 @@ pub fn replay_feed(
     rule: DateRule<DateTime<Utc>>,
     until: DateTime<Utc>,
 ) -> Vec<ReplayedItem> {
+    let mut rescheduled = HashMap::new();
+    for item in items.iter() {
+        let scheduled = rescheduled.entry(&item.id).or_insert(Scheduled {
+            replayed: false,
+            items: Vec::new(),
+        });
+        scheduled.items.push(item);
+    }
+
     let mut replayed = Vec::new();
-    let mut items = items.into_iter().take_while(|item| item.published < until);
+    let mut items = items.iter().take_while(|item| item.published < until);
     let mut replay = |id, timestamp| replayed.push(ReplayedItem { id, timestamp });
     for slot in rule.with_end(until) {
-        match items.next() {
-            Some(next) => {
-                if next.published < slot {
-                    replay(next.id, slot);
-                } else {
-                    replay(next.id, next.published);
-                    while let Some(next) = items.next() {
-                        replay(next.id, next.published);
+        loop {
+            if let Some(next) = items.next() {
+                match rescheduled.get_mut(&next.id) {
+                    Some(scheduled) if !scheduled.replayed => {
+                        if next.published < slot {
+                            if scheduled.items.len() > 1
+                                && (scheduled.items.iter())
+                                    .any(|i| i.noticed < slot && i.published > next.published)
+                            {
+                                continue;
+                            }
+                            replay(next.id.clone(), slot);
+                            scheduled.replayed = true;
+                            break; // move to next slot
+                        } else {
+                            replay(next.id.clone(), next.published);
+                            scheduled.replayed = true;
+                        }
                     }
-                    break;
+                    _ => {}
                 }
+            } else {
+                return replayed; // ran out of items, don't loop over the rest of the slots
             }
-            None => break,
         }
     }
     replayed
@@ -154,6 +182,41 @@ mod tests {
                 ("1", "2014-11-03T20:00:00"),
                 ("2", "2014-11-04T21:00:00"),
                 ("3", "2014-11-09T22:00:00"),
+            ])
+        );
+    }
+
+    #[test]
+    fn does_not_duplicate_a_rescheduled_item_that_already_played() {
+        let feed = summary_items(vec![
+            ("1", "2014-11-01T09:00:00", "pub"),
+            ("1", "2014-11-04T21:00:00", "pub"),
+        ]);
+        let result = replay_feed(
+            feed,
+            DateRule::daily(parse_dt("2014-11-03T20:00:00")),
+            parse_dt("2014-11-12T22:00:00"),
+        );
+        assert_eq!(result, replayed_items(vec![("1", "2014-11-03T20:00:00"),]));
+    }
+
+    #[test]
+    fn does_not_schedule_a_replay_if_a_reschedule_is_noticed_before_slot() {
+        let feed = summary_items(vec![
+            ("1", "2014-11-01T09:00:00", "pub"),
+            ("2", "2014-11-02T21:00:00", "pub"),
+            ("1", "2014-11-04T21:00:00", "pub"),
+        ]);
+        let result = replay_feed(
+            feed,
+            DateRule::daily(parse_dt("2014-11-06T20:00:00")),
+            parse_dt("2014-12-12T22:00:00"),
+        );
+        assert_eq!(
+            result,
+            replayed_items(vec![
+                ("2", "2014-11-06T20:00:00"),
+                ("1", "2014-11-07T20:00:00"),
             ])
         );
     }

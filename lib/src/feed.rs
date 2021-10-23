@@ -27,7 +27,7 @@ pub struct FeedSummary {
     pub items: Vec<FeedSummaryItem>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone, Debug)]
 pub struct FeedSummaryItem {
     pub id: String,
     pub title: Option<String>,
