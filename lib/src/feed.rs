@@ -31,7 +31,7 @@ pub struct FeedSummary {
 pub struct FeedSummaryItem {
     pub id: String,
     pub title: Option<String>,
-    pub published: DateTime<Utc>,
+    pub published: Option<DateTime<Utc>>,
     pub noticed: DateTime<Utc>,
 }
 
@@ -44,7 +44,7 @@ impl From<Feed> for FeedSummary {
                 items.push(FeedSummaryItem {
                     id: entry.id,
                     title: entry.title.map(|t| t.content),
-                    published: timestamp,
+                    published: Some(timestamp),
                     noticed: timestamp,
                 });
             }
