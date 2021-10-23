@@ -18,28 +18,21 @@ pub fn replay_feed(
 ) -> Vec<ReplayedItem> {
     let mut replayed = Vec::new();
     let mut items = items.into_iter().take_while(|item| item.published < until);
+    let mut replay = |id, timestamp| replayed.push(ReplayedItem { id, timestamp });
     for slot in rule.with_end(until) {
         match items.next() {
             Some(next) => {
                 if next.published < slot {
-                    replayed.push(ReplayedItem {
-                        id: next.id,
-                        timestamp: slot,
-                    })
+                    replay(next.id, slot);
                 } else {
-                    replayed.push(ReplayedItem {
-                        id: next.id,
-                        timestamp: next.published,
-                    });
+                    replay(next.id, next.published);
                     while let Some(next) = items.next() {
-                        replayed.push(ReplayedItem {
-                            id: next.id,
-                            timestamp: next.published,
-                        });
+                        replay(next.id, next.published);
                     }
+                    break;
                 }
             }
-            None => return replayed,
+            None => break,
         }
     }
     replayed
