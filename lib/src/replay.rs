@@ -34,21 +34,33 @@ pub fn replay_feed(
     let mut replayed = Vec::new();
     let mut items = items.iter().take_while(|item| item.published < until);
     let mut replay = |id, timestamp| replayed.push(ReplayedItem { id, timestamp });
+    let mut delayed: Vec<&FeedSummaryItem> = Vec::new();
     for slot in rule.with_end(until) {
         loop {
-            if let Some(next) = items.next() {
+            let delayed_index = delayed.iter().position(|i| i.noticed <= slot);
+            let next_up = delayed_index
+                .map(|index| delayed.remove(index))
+                .or_else(|| items.next());
+            if let Some(next) = next_up {
                 match rescheduled.get_mut(&next.id) {
                     Some(scheduled) if !scheduled.replayed => {
                         if next.published < slot {
-                            if scheduled.items.len() > 1
-                                && (scheduled.items.iter())
-                                    .any(|i| i.noticed < slot && i.published > next.published)
-                            {
-                                continue;
+                            let rescheduled = scheduled.items.len() > 1
+                                && (scheduled.items.iter()).any(|i| {
+                                    i.noticed <= slot
+                                        && i.published > next.published
+                                        && i.noticed >= next.noticed
+                                });
+                            if !rescheduled {
+                                if next.noticed <= slot {
+                                    replay(next.id.clone(), slot);
+                                    scheduled.replayed = true;
+                                    break; // move to next slot
+                                } else {
+                                    delayed.push(&next);
+                                    delayed.sort_by_key(|i| i.published);
+                                }
                             }
-                            replay(next.id.clone(), slot);
-                            scheduled.replayed = true;
-                            break; // move to next slot
                         } else {
                             replay(next.id.clone(), next.published);
                             scheduled.replayed = true;
@@ -56,8 +68,10 @@ pub fn replay_feed(
                     }
                     _ => {}
                 }
-            } else {
+            } else if delayed.is_empty() {
                 return replayed; // ran out of items, don't loop over the rest of the slots
+            } else {
+                break;
             }
         }
     }
@@ -215,6 +229,153 @@ mod tests {
             replayed_items(vec![
                 ("2", "2014-11-06T20:00:00"),
                 ("1", "2014-11-07T20:00:00"),
+            ])
+        );
+    }
+
+    #[test]
+    fn moved_forward_noticed_after_slot() {
+        let items = summary_items(vec![
+            ("1", "2014-11-01T09:00:00", "pub"),
+            ("2", "2014-11-02T21:00:00", "pub"),
+            ("1", "2014-11-04T21:00:00", "pub"),
+        ]);
+        let result = replay_feed(
+            items,
+            DateRule::daily(parse_dt("2014-11-03T20:00:00")),
+            parse_dt("2014-12-12T22:00:00"),
+        );
+        assert_eq!(
+            result,
+            replayed_items(vec![
+                ("1", "2014-11-03T20:00:00"),
+                ("2", "2014-11-04T20:00:00"),
+            ])
+        );
+    }
+
+    #[test]
+    fn moved_forward_noticed_before_slot() {
+        let items = summary_items(vec![
+            ("1", "2014-11-01T09:00:00", "pub"),
+            ("2", "2014-11-02T21:00:00", "pub"),
+            ("1", "2014-11-04T21:00:00", "pub"),
+        ]);
+        let result = replay_feed(
+            items,
+            DateRule::daily(parse_dt("2014-11-06T20:00:00")),
+            parse_dt("2014-12-12T22:00:00"),
+        );
+        assert_eq!(
+            result,
+            replayed_items(vec![
+                ("2", "2014-11-06T20:00:00"),
+                ("1", "2014-11-07T20:00:00"),
+            ])
+        );
+    }
+
+    #[test]
+    fn moved_backward_noticed_before_slot() {
+        let items = summary_items(vec![
+            ("1", "2014-11-01T21:00:00", "2014-11-08T21:00:00"),
+            ("2", "2014-11-02T09:00:00", "pub"),
+            ("1", "2014-11-06T21:00:00", "pub"),
+        ]);
+        let result = replay_feed(
+            items,
+            DateRule::daily(parse_dt("2014-11-09T20:00:00")),
+            parse_dt("2014-12-12T22:00:00"),
+        );
+        assert_eq!(
+            result,
+            replayed_items(vec![
+                ("1", "2014-11-09T20:00:00"),
+                ("2", "2014-11-10T20:00:00"),
+            ])
+        );
+    }
+
+    #[test]
+    fn moved_backward_noticed_after_slot() {
+        let items = summary_items(vec![
+            ("1", "2014-11-01T21:00:00", "2014-11-08T21:00:00"),
+            ("2", "2014-11-02T09:00:00", "pub"),
+            ("1", "2014-11-06T20:00:00", "pub"),
+        ]);
+        let result = replay_feed(
+            items,
+            DateRule::daily(parse_dt("2014-11-06T10:00:00")),
+            parse_dt("2014-12-12T22:00:00"),
+        );
+        assert_eq!(
+            result,
+            replayed_items(vec![
+                ("2", "2014-11-06T10:00:00"),
+                ("1", "2014-11-07T10:00:00"),
+            ])
+        );
+    }
+
+    #[test]
+    fn published_retroactively_noticed_before_slot() {
+        let items = summary_items(vec![
+            ("1", "2014-11-01T21:00:00", "2014-11-05T21:00:00"),
+            ("2", "2014-11-02T09:00:00", "pub"),
+        ]);
+        let result = replay_feed(
+            items,
+            DateRule::daily(parse_dt("2014-11-06T10:00:00")),
+            parse_dt("2014-12-12T22:00:00"),
+        );
+        assert_eq!(
+            result,
+            replayed_items(vec![
+                ("1", "2014-11-06T10:00:00"),
+                ("2", "2014-11-07T10:00:00"),
+            ])
+        );
+    }
+
+    #[test]
+    fn published_retroactively_noticed_after_slot() {
+        let items = summary_items(vec![
+            ("1", "2014-11-01T21:00:00", "2014-11-11T10:00:00"),
+            ("2", "2014-11-02T09:00:00", "pub"),
+        ]);
+        let result = replay_feed(
+            items,
+            DateRule::daily(parse_dt("2014-11-10T20:00:00")),
+            parse_dt("2014-12-12T22:00:00"),
+        );
+        assert_eq!(
+            result,
+            replayed_items(vec![
+                ("2", "2014-11-10T20:00:00"),
+                ("1", "2014-11-11T20:00:00"),
+            ])
+        );
+    }
+
+    #[test]
+    fn published_retroactively_noticed_after_slot_and_missed_a_slot() {
+        let items = summary_items(vec![
+            ("1", "2014-11-01T21:00:00", "2014-11-11T21:00:00"),
+            ("2", "2014-11-02T09:00:00", "pub"),
+        ]);
+        let result = replay_feed(
+            items,
+            DateRule::daily(parse_dt("2014-11-10T10:00:00")),
+            parse_dt("2014-12-12T22:00:00"),
+        );
+        assert_eq!(
+            result,
+            replayed_items(vec![
+                ("2", "2014-11-10T10:00:00"),
+                // Because the publish wasn't noticed before the slot on the
+                // 11th, it doesn't get replayed until the next available slot
+                // on the 12th
+                ("1", "2014-11-12T10:00:00"),
             ])
         );
     }
