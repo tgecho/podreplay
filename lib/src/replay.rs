@@ -17,8 +17,6 @@ struct Scheduled<'a> {
     items: Vec<&'a FeedSummaryItem>,
 }
 
-// TODO: Consider an option to stay on replay schedule after catching up, even if it means skipping days
-// TODO: Add handling for rescheduled episodes
 pub fn replay_feed(
     items: Vec<FeedSummaryItem>,
     rule: DateRule<DateTime<Utc>>,
