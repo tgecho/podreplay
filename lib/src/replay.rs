@@ -17,7 +17,7 @@ pub fn replay_feed(
     let mut published_before_cutoff = items
         .iter()
         .filter(|item| item.published.map_or(false, |p| p < until));
-    let mut instances_by_id = init_reschedule_map(&items);
+    let mut instances_by_id = create_instances_by_id(items);
     let mut delayed = DelayedItems::new();
     let mut results = Vec::new();
 
@@ -34,7 +34,7 @@ pub fn replay_feed(
                     }
                     if item.published < some_slot {
                         if item.noticed > slot {
-                            delayed.add(&item);
+                            delayed.add(item);
                             continue; // was published retroactively AFTER we replayed in this slot
                         }
                         if instances.rescheduled_before(slot, item) {
@@ -76,7 +76,7 @@ pub fn replay_feed(
     results
 }
 
-fn init_reschedule_map(items: &[FeedSummaryItem]) -> HashMap<&String, Scheduled> {
+fn create_instances_by_id(items: &[FeedSummaryItem]) -> HashMap<&String, Scheduled> {
     let mut rescheduled = HashMap::new();
     for item in items.iter() {
         let scheduled = rescheduled.entry(&item.id).or_insert(Scheduled {
