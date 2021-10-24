@@ -6,8 +6,8 @@ use chronoutil::DateRule;
 use crate::FeedSummaryItem;
 
 #[derive(Debug, PartialEq)]
-pub struct ReplayedItem {
-    id: String,
+pub struct ReplayedItem<'a> {
+    id: &'a str,
     timestamp: DateTime<Utc>,
 }
 
@@ -68,7 +68,7 @@ impl<'a> Scheduled<'a> {
     }
 }
 
-fn init_reschedule_map(items: &Vec<FeedSummaryItem>) -> HashMap<&String, Scheduled> {
+fn init_reschedule_map(items: &[FeedSummaryItem]) -> HashMap<&String, Scheduled> {
     let mut rescheduled = HashMap::new();
     for item in items.iter() {
         let scheduled = rescheduled.entry(&item.id).or_insert(Scheduled {
@@ -81,7 +81,7 @@ fn init_reschedule_map(items: &Vec<FeedSummaryItem>) -> HashMap<&String, Schedul
 }
 
 pub fn replay_feed(
-    items: Vec<FeedSummaryItem>,
+    items: &[FeedSummaryItem],
     rule: DateRule<DateTime<Utc>>,
     until: DateTime<Utc>,
 ) -> Vec<ReplayedItem> {
@@ -119,7 +119,7 @@ pub fn replay_feed(
                                     }
                                     Unpublished::Never => {
                                         replayed.push(ReplayedItem {
-                                            id: next.id.clone(),
+                                            id: &next.id,
                                             timestamp: slot,
                                         });
                                         scheduled.replayed = true;
@@ -129,7 +129,7 @@ pub fn replay_feed(
                             }
                         } else if let Some(published) = next.published {
                             replayed.push(ReplayedItem {
-                                id: next.id.clone(),
+                                id: &next.id,
                                 timestamp: published,
                             });
                             scheduled.replayed = true;
@@ -182,11 +182,11 @@ mod tests {
             .collect()
     }
 
-    fn replayed_items(items: Vec<(&str, &str)>) -> Vec<ReplayedItem> {
+    fn replayed_items<'a>(items: Vec<(&'a str, &'a str)>) -> Vec<ReplayedItem<'a>> {
         items
             .into_iter()
             .map(|(id, dt_str)| ReplayedItem {
-                id: id.to_string(),
+                id: id,
                 timestamp: parse_dt(dt_str),
             })
             .collect()
@@ -194,9 +194,9 @@ mod tests {
 
     #[test]
     fn empty_feed() {
-        let feed = summary_items(vec![]);
+        let items = summary_items(vec![]);
         let result = replay_feed(
-            feed,
+            &items,
             DateRule::daily(parse_dt("2014-11-28T21:00:00")),
             parse_dt("2014-12-28T21:00:00"),
         );
@@ -205,9 +205,9 @@ mod tests {
 
     #[test]
     fn one_item() {
-        let feed = summary_items(vec![("1", "2013-10-10T21:00:00", "pub")]);
+        let items = summary_items(vec![("1", "2013-10-10T21:00:00", "pub")]);
         let result = replay_feed(
-            feed,
+            &items,
             DateRule::daily(parse_dt("2014-11-28T21:00:00")),
             parse_dt("2014-12-28T21:00:00"),
         );
@@ -216,12 +216,12 @@ mod tests {
 
     #[test]
     fn two_items() {
-        let feed = summary_items(vec![
+        let items = summary_items(vec![
             ("1", "2013-10-10T21:00:00", "pub"),
             ("2", "2013-11-10T21:00:00", "pub"),
         ]);
         let result = replay_feed(
-            feed,
+            &items,
             DateRule::daily(parse_dt("2014-11-28T21:00:00")),
             parse_dt("2014-12-28T21:00:00"),
         );
@@ -236,12 +236,12 @@ mod tests {
 
     #[test]
     fn stops_repeating_at_end() {
-        let feed = summary_items(vec![
+        let items = summary_items(vec![
             ("1", "2013-11-28T21:00:00", "pub"),
             ("2", "2013-12-28T21:00:00", "pub"),
         ]);
         let result = replay_feed(
-            feed,
+            &items,
             DateRule::weekly(parse_dt("2014-11-28T21:00:00")),
             parse_dt("2014-11-28T22:00:00"),
         );
@@ -250,14 +250,14 @@ mod tests {
 
     #[test]
     fn resumes_original_schedule_once_caught_up() {
-        let feed = summary_items(vec![
+        let items = summary_items(vec![
             ("1", "2014-11-01T09:00:00", "pub"),
             ("2", "2014-11-04T21:00:00", "pub"),
             ("3", "2014-11-09T22:00:00", "pub"),
             ("4", "2014-11-13T22:00:00", "pub"),
         ]);
         let result = replay_feed(
-            feed,
+            &items,
             DateRule::daily(parse_dt("2014-11-03T20:00:00")),
             parse_dt("2014-11-12T22:00:00"),
         );
@@ -273,12 +273,12 @@ mod tests {
 
     #[test]
     fn does_not_duplicate_a_rescheduled_item_that_already_played() {
-        let feed = summary_items(vec![
+        let items = summary_items(vec![
             ("1", "2014-11-01T09:00:00", "pub"),
             ("1", "2014-11-04T21:00:00", "pub"),
         ]);
         let result = replay_feed(
-            feed,
+            &items,
             DateRule::daily(parse_dt("2014-11-03T20:00:00")),
             parse_dt("2014-11-12T22:00:00"),
         );
@@ -287,13 +287,13 @@ mod tests {
 
     #[test]
     fn does_not_schedule_a_replay_if_a_reschedule_is_noticed_before_slot() {
-        let feed = summary_items(vec![
+        let items = summary_items(vec![
             ("1", "2014-11-01T09:00:00", "pub"),
             ("2", "2014-11-02T21:00:00", "pub"),
             ("1", "2014-11-04T21:00:00", "pub"),
         ]);
         let result = replay_feed(
-            feed,
+            &items,
             DateRule::daily(parse_dt("2014-11-06T20:00:00")),
             parse_dt("2014-12-12T22:00:00"),
         );
@@ -314,7 +314,7 @@ mod tests {
             ("1", "2014-11-04T21:00:00", "pub"),
         ]);
         let result = replay_feed(
-            items,
+            &items,
             DateRule::daily(parse_dt("2014-11-03T20:00:00")),
             parse_dt("2014-12-12T22:00:00"),
         );
@@ -335,7 +335,7 @@ mod tests {
             ("1", "2014-11-04T21:00:00", "pub"),
         ]);
         let result = replay_feed(
-            items,
+            &items,
             DateRule::daily(parse_dt("2014-11-06T20:00:00")),
             parse_dt("2014-12-12T22:00:00"),
         );
@@ -356,7 +356,7 @@ mod tests {
             ("1", "2014-11-06T21:00:00", "pub"),
         ]);
         let result = replay_feed(
-            items,
+            &items,
             DateRule::daily(parse_dt("2014-11-09T20:00:00")),
             parse_dt("2014-12-12T22:00:00"),
         );
@@ -377,7 +377,7 @@ mod tests {
             ("1", "2014-11-06T20:00:00", "pub"),
         ]);
         let result = replay_feed(
-            items,
+            &items,
             DateRule::daily(parse_dt("2014-11-06T10:00:00")),
             parse_dt("2014-12-12T22:00:00"),
         );
@@ -397,7 +397,7 @@ mod tests {
             ("2", "2014-11-02T09:00:00", "pub"),
         ]);
         let result = replay_feed(
-            items,
+            &items,
             DateRule::daily(parse_dt("2014-11-06T10:00:00")),
             parse_dt("2014-12-12T22:00:00"),
         );
@@ -417,7 +417,7 @@ mod tests {
             ("2", "2014-11-02T09:00:00", "pub"),
         ]);
         let result = replay_feed(
-            items,
+            &items,
             DateRule::daily(parse_dt("2014-11-10T20:00:00")),
             parse_dt("2014-12-12T22:00:00"),
         );
@@ -437,7 +437,7 @@ mod tests {
             ("2", "2014-11-02T09:00:00", "pub"),
         ]);
         let result = replay_feed(
-            items,
+            &items,
             DateRule::daily(parse_dt("2014-11-10T10:00:00")),
             parse_dt("2014-12-12T22:00:00"),
         );
@@ -461,7 +461,7 @@ mod tests {
             ("1", "gone", "2014-11-11T21:00:00"),
         ]);
         let result = replay_feed(
-            items,
+            &items,
             DateRule::daily(parse_dt("2014-11-10T10:00:00")),
             parse_dt("2014-12-12T22:00:00"),
         );
@@ -484,7 +484,7 @@ mod tests {
             ("1", "gone", "2014-11-10T21:00:00"),
         ]);
         let result = replay_feed(
-            items,
+            &items,
             DateRule::daily(parse_dt("2014-11-12T10:00:00")),
             parse_dt("2014-12-12T22:00:00"),
         );
