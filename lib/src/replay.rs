@@ -24,6 +24,27 @@ enum Unpublished {
     Never,
 }
 
+struct DelayedItems<'a>(Vec<&'a FeedSummaryItem>);
+impl<'a> DelayedItems<'a> {
+    fn new() -> Self {
+        DelayedItems(Vec::new())
+    }
+
+    fn add<'b>(&'b mut self, item: &'a FeedSummaryItem) {
+        self.0.push(item);
+        self.0.sort_by_key(|i| i.published);
+    }
+
+    fn pop_eligible<'b>(&'b mut self, slot: DateTime<Utc>) -> Option<&'a FeedSummaryItem> {
+        let delayed_index = self.0.iter().position(|i| i.noticed <= slot);
+        delayed_index.map(|index| self.0.remove(index))
+    }
+
+    fn is_empty(&'a self) -> bool {
+        self.0.is_empty()
+    }
+}
+
 impl<'a> Scheduled<'a> {
     fn rescheduled<'b>(&'a self, slot: DateTime<Utc>, item: &'b FeedSummaryItem) -> bool {
         self.items.len() > 1
@@ -47,11 +68,7 @@ impl<'a> Scheduled<'a> {
     }
 }
 
-pub fn replay_feed(
-    items: Vec<FeedSummaryItem>,
-    rule: DateRule<DateTime<Utc>>,
-    until: DateTime<Utc>,
-) -> Vec<ReplayedItem> {
+fn init_reschedule_map(items: &Vec<FeedSummaryItem>) -> HashMap<&String, Scheduled> {
     let mut rescheduled = HashMap::new();
     for item in items.iter() {
         let scheduled = rescheduled.entry(&item.id).or_insert(Scheduled {
@@ -60,28 +77,31 @@ pub fn replay_feed(
         });
         scheduled.items.push(item);
     }
+    rescheduled
+}
 
+pub fn replay_feed(
+    items: Vec<FeedSummaryItem>,
+    rule: DateRule<DateTime<Utc>>,
+    until: DateTime<Utc>,
+) -> Vec<ReplayedItem> {
+    let mut rescheduled = init_reschedule_map(&items);
     let mut replayed = Vec::new();
     let some_until = Some(until);
     let mut items = items.iter().filter(|item| item.published < some_until);
-    let mut delayed: Vec<&FeedSummaryItem> = Vec::new();
+    let mut delayed = DelayedItems::new();
 
     for slot in rule.with_end(until) {
         let some_slot = Some(slot);
         loop {
-            let delayed_index = delayed.iter().position(|i| i.noticed <= slot);
-            let next_up = delayed_index
-                .map(|index| delayed.remove(index))
-                .or_else(|| items.next());
-
+            let next_up = delayed.pop_eligible(slot).or_else(|| items.next());
             if let Some(next) = next_up {
                 match rescheduled.get_mut(&next.id) {
                     Some(scheduled) if !scheduled.replayed => {
                         if next.published < some_slot {
                             if !scheduled.rescheduled(slot, next) {
                                 if next.noticed > slot {
-                                    delayed.push(&next);
-                                    delayed.sort_by_key(|i| i.published);
+                                    delayed.add(&next);
                                     continue;
                                 }
                                 match scheduled.finally_unpublished(slot) {
