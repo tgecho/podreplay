@@ -14,26 +14,28 @@ pub fn replay_feed(
     rule: DateRule<DateTime<Utc>>,
     until: DateTime<Utc>,
 ) -> Vec<ReplayedItem> {
-    let mut rescheduled = init_reschedule_map(&items);
-    let mut replayed = Vec::new();
     let some_until = Some(until);
-    let mut items = items.iter().filter(|item| item.published < some_until);
+    let mut published_items = items.iter().filter(|item| item.published < some_until);
+    let mut instances_by_id = init_reschedule_map(&items);
     let mut delayed = DelayedItems::new();
+    let mut results = Vec::new();
 
     for slot in rule.with_end(until) {
         let some_slot = Some(slot);
         loop {
-            let next_up = delayed.pop_eligible(slot).or_else(|| items.next());
-            if let Some(next) = next_up {
-                match rescheduled.get_mut(&next.id) {
-                    Some(scheduled) if !scheduled.replayed => {
-                        if next.published < some_slot {
-                            if !scheduled.rescheduled(slot, next) {
-                                if next.noticed > slot {
-                                    delayed.add(&next);
+            let next_item = delayed
+                .pop_eligible(slot)
+                .or_else(|| published_items.next());
+            if let Some(item) = next_item {
+                match instances_by_id.get_mut(&item.id) {
+                    Some(instances) if !instances.already_replayed => {
+                        if item.published < some_slot {
+                            if !instances.rescheduled_before(slot, item) {
+                                if item.noticed > slot {
+                                    delayed.add(&item);
                                     continue;
                                 }
-                                match scheduled.finally_unpublished(slot) {
+                                match instances.finally_unpublished(slot) {
                                     Unpublished::BeforeSlot => {
                                         // we found out about the unpublish
                                         // before we got here, so loop
@@ -47,40 +49,40 @@ pub fn replay_feed(
                                         break;
                                     }
                                     Unpublished::Never => {
-                                        replayed.push(ReplayedItem {
-                                            id: &next.id,
+                                        results.push(ReplayedItem {
+                                            id: &item.id,
                                             timestamp: slot,
                                         });
-                                        scheduled.replayed = true;
+                                        instances.already_replayed = true;
                                         break; // move to next slot
                                     }
                                 }
                             }
-                        } else if let Some(published) = next.published {
-                            replayed.push(ReplayedItem {
-                                id: &next.id,
+                        } else if let Some(published) = item.published {
+                            results.push(ReplayedItem {
+                                id: &item.id,
                                 timestamp: published,
                             });
-                            scheduled.replayed = true;
+                            instances.already_replayed = true;
                         }
                     }
                     _ => {}
                 }
             } else if delayed.is_empty() {
-                return replayed; // ran out of items, don't loop over the rest of the slots
+                return results; // ran out of items, don't loop over the rest of the slots
             } else {
                 break;
             }
         }
     }
-    replayed
+    results
 }
 
 fn init_reschedule_map(items: &[FeedSummaryItem]) -> HashMap<&String, Scheduled> {
     let mut rescheduled = HashMap::new();
     for item in items.iter() {
         let scheduled = rescheduled.entry(&item.id).or_insert(Scheduled {
-            replayed: false,
+            already_replayed: false,
             items: Vec::new(),
         });
         scheduled.items.push(item);
@@ -90,7 +92,7 @@ fn init_reschedule_map(items: &[FeedSummaryItem]) -> HashMap<&String, Scheduled>
 
 #[derive(Debug)]
 struct Scheduled<'a> {
-    replayed: bool,
+    already_replayed: bool,
     items: Vec<&'a FeedSummaryItem>,
 }
 
@@ -102,7 +104,7 @@ enum Unpublished {
 }
 
 impl<'a> Scheduled<'a> {
-    fn rescheduled<'b>(&'a self, slot: DateTime<Utc>, item: &'b FeedSummaryItem) -> bool {
+    fn rescheduled_before<'b>(&'a self, slot: DateTime<Utc>, item: &'b FeedSummaryItem) -> bool {
         self.items.len() > 1
             && (self.items.iter()).any(|i| {
                 i.noticed <= slot && i.noticed >= item.noticed && i.published > item.published
