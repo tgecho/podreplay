@@ -5,10 +5,12 @@ use podreplay_lib::{replay_feed, FeedSummaryItem, ReplayedItem};
 
 fn parse_dt(dt_str: &str) -> DateTime<Utc> {
     let fmt = "%Y-%m-%dT%H:%M:%S";
-    let ndt = NaiveDateTime::parse_from_str(dt_str, fmt).expect(&format!(
-        "DateTime::parse_from_str(\"{}\", \"{}\") failed with",
-        dt_str, fmt
-    ));
+    let ndt = NaiveDateTime::parse_from_str(dt_str, fmt).unwrap_or_else(|_| {
+        panic!(
+            "DateTime::parse_from_str(\"{}\", \"{}\") failed with",
+            dt_str, fmt
+        )
+    });
     DateTime::<Utc>::from_utc(ndt, Utc)
 }
 
@@ -32,7 +34,7 @@ fn replayed_items<'a>(items: Vec<(&'a str, &'a str)>) -> Vec<ReplayedItem<'a>> {
     items
         .into_iter()
         .map(|(id, dt_str)| ReplayedItem {
-            id: id,
+            id,
             timestamp: parse_dt(dt_str),
         })
         .collect()
