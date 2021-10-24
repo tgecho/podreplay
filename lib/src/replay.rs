@@ -17,6 +17,36 @@ struct Scheduled<'a> {
     items: Vec<&'a FeedSummaryItem>,
 }
 
+#[derive(Debug)]
+enum Unpublished {
+    BeforeSlot,
+    AfterSlot,
+    Never,
+}
+
+impl<'a> Scheduled<'a> {
+    fn rescheduled<'b>(&'a self, slot: DateTime<Utc>, item: &'b FeedSummaryItem) -> bool {
+        self.items.len() > 1
+            && (self.items.iter()).any(|i| {
+                i.noticed <= slot && i.noticed >= item.noticed && i.published > item.published
+            })
+    }
+
+    fn finally_unpublished(&'a self, slot: DateTime<Utc>) -> Unpublished {
+        let item = self.items.iter().max_by_key(|i| i.noticed);
+        match item {
+            Some(item) if item.published.is_none() => {
+                if item.noticed > slot {
+                    Unpublished::AfterSlot
+                } else {
+                    Unpublished::BeforeSlot
+                }
+            }
+            _ => Unpublished::Never,
+        }
+    }
+}
+
 pub fn replay_feed(
     items: Vec<FeedSummaryItem>,
     rule: DateRule<DateTime<Utc>>,
@@ -34,8 +64,8 @@ pub fn replay_feed(
     let mut replayed = Vec::new();
     let some_until = Some(until);
     let mut items = items.iter().filter(|item| item.published < some_until);
-    let mut replay = |id, timestamp| replayed.push(ReplayedItem { id, timestamp });
     let mut delayed: Vec<&FeedSummaryItem> = Vec::new();
+
     for slot in rule.with_end(until) {
         let some_slot = Some(slot);
         loop {
@@ -48,52 +78,41 @@ pub fn replay_feed(
                 match rescheduled.get_mut(&next.id) {
                     Some(scheduled) if !scheduled.replayed => {
                         if next.published < some_slot {
-                            let changed = scheduled.items.len() > 1;
-                            let rescheduled = changed
-                                && (scheduled.items.iter()).any(|i| {
-                                    i.noticed <= slot
-                                        && i.noticed >= next.noticed
-                                        && i.published > next.published
-                                });
-                            let finally_unpublished = scheduled
-                                .items
-                                .iter()
-                                .max_by_key(|i| i.noticed)
-                                .and_then(|i| {
-                                    if i.published.is_none() {
-                                        Some(i.noticed)
-                                    } else {
-                                        None
-                                    }
-                                });
-                            if !rescheduled {
-                                if next.noticed <= slot {
-                                    if let Some(noticed) = finally_unpublished {
-                                        if noticed > slot {
-                                            // skip this slot since we
-                                            // previously replayed this now
-                                            // known to be unpublished item
-                                            break;
-                                        } else {
-                                            // we found out about the unpublish
-                                            // before we got here, so loop
-                                            // around and try the next one
-                                            continue;
-                                        }
-                                    }
-                                    replay(next.id.clone(), slot);
-                                    scheduled.replayed = true;
-                                    break; // move to next slot
-                                } else {
+                            if !scheduled.rescheduled(slot, next) {
+                                if next.noticed > slot {
                                     delayed.push(&next);
                                     delayed.sort_by_key(|i| i.published);
+                                    continue;
+                                }
+                                match scheduled.finally_unpublished(slot) {
+                                    Unpublished::BeforeSlot => {
+                                        // we found out about the unpublish
+                                        // before we got here, so loop
+                                        // around and try the next one
+                                        continue;
+                                    }
+                                    Unpublished::AfterSlot => {
+                                        // skip this slot since we
+                                        // previously replayed this now
+                                        // known to be unpublished item
+                                        break;
+                                    }
+                                    Unpublished::Never => {
+                                        replayed.push(ReplayedItem {
+                                            id: next.id.clone(),
+                                            timestamp: slot,
+                                        });
+                                        scheduled.replayed = true;
+                                        break; // move to next slot
+                                    }
                                 }
                             }
-                        } else {
-                            if let Some(published) = next.published {
-                                replay(next.id.clone(), published);
-                                scheduled.replayed = true;
-                            }
+                        } else if let Some(published) = next.published {
+                            replayed.push(ReplayedItem {
+                                id: next.id.clone(),
+                                timestamp: published,
+                            });
+                            scheduled.replayed = true;
                         }
                     }
                     _ => {}
