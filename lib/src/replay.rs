@@ -16,7 +16,7 @@ pub fn replay_feed(
 ) -> Vec<ReplayedItem> {
     let mut published_before_cutoff = items
         .iter()
-        .filter(|item| item.published.map_or(false, |p| p < until));
+        .filter(|item| item.published.map_or(false, |p| p <= until));
     let mut instances_by_id = create_instances_by_id(items);
     let mut delayed = DelayedItems::new();
     let mut results = Vec::new();
@@ -32,7 +32,7 @@ pub fn replay_feed(
                     if instances.already_replayed {
                         continue; // try another item
                     }
-                    if item.published < some_slot {
+                    if item.published <= some_slot {
                         if item.noticed > slot {
                             delayed.add(item);
                             continue; // was published retroactively AFTER we replayed in this slot
