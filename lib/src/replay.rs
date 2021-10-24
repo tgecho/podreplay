@@ -14,8 +14,9 @@ pub fn replay_feed(
     rule: DateRule<DateTime<Utc>>,
     until: DateTime<Utc>,
 ) -> Vec<ReplayedItem> {
-    let some_until = Some(until);
-    let mut published_items = items.iter().filter(|item| item.published < some_until);
+    let mut published_before_cutoff = items
+        .iter()
+        .filter(|item| item.published.map_or(false, |p| p < until));
     let mut instances_by_id = init_reschedule_map(&items);
     let mut delayed = DelayedItems::new();
     let mut results = Vec::new();
@@ -25,53 +26,50 @@ pub fn replay_feed(
         loop {
             let next_item = delayed
                 .pop_eligible(slot)
-                .or_else(|| published_items.next());
+                .or_else(|| published_before_cutoff.next());
             if let Some(item) = next_item {
-                match instances_by_id.get_mut(&item.id) {
-                    Some(instances) if !instances.already_replayed => {
-                        if item.published < some_slot {
-                            if !instances.rescheduled_before(slot, item) {
-                                if item.noticed > slot {
-                                    delayed.add(&item);
-                                    continue;
-                                }
-                                match instances.finally_unpublished(slot) {
-                                    Unpublished::BeforeSlot => {
-                                        // we found out about the unpublish
-                                        // before we got here, so loop
-                                        // around and try the next one
-                                        continue;
-                                    }
-                                    Unpublished::AfterSlot => {
-                                        // skip this slot since we
-                                        // previously replayed this now
-                                        // known to be unpublished item
-                                        break;
-                                    }
-                                    Unpublished::Never => {
-                                        results.push(ReplayedItem {
-                                            id: &item.id,
-                                            timestamp: slot,
-                                        });
-                                        instances.already_replayed = true;
-                                        break; // move to next slot
-                                    }
-                                }
-                            }
-                        } else if let Some(published) = item.published {
-                            results.push(ReplayedItem {
-                                id: &item.id,
-                                timestamp: published,
-                            });
-                            instances.already_replayed = true;
-                        }
+                if let Some(instances) = instances_by_id.get_mut(&item.id) {
+                    if instances.already_replayed {
+                        continue; // try another item
                     }
-                    _ => {}
+                    if item.published < some_slot {
+                        if item.noticed > slot {
+                            delayed.add(&item);
+                            continue; // was published retroactively AFTER we replayed in this slot
+                        }
+                        if instances.rescheduled_before(slot, item) {
+                            continue; // rescheduled into the future, try another item in this slot
+                        }
+                        match instances.finally_unpublished(slot) {
+                            Unpublished::BeforeSlot => {
+                                continue; // we found out about this in time to fill the slot with something else
+                            }
+                            Unpublished::AfterSlot => {
+                                break; // we've already replayed this item here, so we need to keep the slot empty
+                            }
+                            Unpublished::Never => {
+                                results.push(ReplayedItem {
+                                    id: &item.id,
+                                    timestamp: slot,
+                                });
+                                instances.already_replayed = true;
+                                break; // slot filled, move to the next
+                            }
+                        }
+                    } else if let Some(published) = item.published {
+                        // This was published after this slot, meaning we've apparently caught up.
+                        // Keep replaying items at their original publication times.
+                        results.push(ReplayedItem {
+                            id: &item.id,
+                            timestamp: published,
+                        });
+                        instances.already_replayed = true;
+                    }
                 }
             } else if delayed.is_empty() {
                 return results; // ran out of items, don't loop over the rest of the slots
             } else {
-                break;
+                break; // no eligible items available for this slot, try the next
             }
         }
     }
