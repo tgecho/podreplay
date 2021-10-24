@@ -88,13 +88,11 @@ fn create_instances_by_id(items: &[FeedSummaryItem]) -> HashMap<&String, Schedul
     rescheduled
 }
 
-#[derive(Debug)]
 struct Scheduled<'a> {
     already_replayed: bool,
     items: Vec<&'a FeedSummaryItem>,
 }
 
-#[derive(Debug)]
 enum Unpublished {
     BeforeSlot,
     AfterSlot,

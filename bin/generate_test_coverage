@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+set -e
+
+# Use a different target dir so the clean cycle doesn't interfere with rust-analyzer and regular test runs
+export CARGO_TARGET_DIR=./target/coverage
+
+# From https://github.com/mozilla/grcov
+export CARGO_INCREMENTAL=0
+export RUSTFLAGS="-Zinstrument-coverage -Clink-dead-code"
+export RUSTDOCFLAGS="-Zinstrument-coverage -Clink-dead-code"
+export LLVM_PROFILE_FILE="%p-%m.profraw"
+
+rm -f ./*.profraw
+rm -f ./**/*.profraw
+cargo +nightly test
+
+grcov . -s . -t html \
+    --binary-path "$CARGO_TARGET_DIR/debug" \
+    --llvm --branch \
+    --ignore-not-existing \
+    -o "$CARGO_TARGET_DIR/output" \
+    --excl-line '// *coverage-ignore'
+
+rm -f ./*.profraw
+rm -f ./**/*.profraw
+
+open "$CARGO_TARGET_DIR/output/index.html"
