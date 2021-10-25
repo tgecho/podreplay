@@ -1,5 +1,10 @@
+use std::collections::HashMap;
+
 use chrono::{DateTime, Utc};
-use feed_rs::{model::Feed as ParsedFeed, parser};
+use feed_rs::{
+    model::{Entry, Feed as ParsedFeed},
+    parser,
+};
 use serde::Serialize;
 
 pub struct Feed {
@@ -7,16 +12,22 @@ pub struct Feed {
     uri: Option<String>,
 }
 
-impl Feed {}
-
 impl Feed {
-    fn new(feed: ParsedFeed, uri: Option<String>) -> Self {
+    pub fn new(feed: ParsedFeed, uri: Option<String>) -> Self {
         Feed { feed, uri }
     }
 
     pub fn from_source(source: &[u8], uri: Option<&str>) -> Self {
         let feed = parser::parse_with_uri(source, uri).unwrap();
         Feed::new(feed, uri.map(|uri| uri.to_string()))
+    }
+
+    pub fn id_map(&self) -> HashMap<&str, &Entry> {
+        self.feed
+            .entries
+            .iter()
+            .map(|e| (e.id.as_str(), e))
+            .collect()
     }
 }
 
@@ -27,7 +38,26 @@ pub struct FeedSummary {
     pub items: Vec<FeedSummaryItem>,
 }
 
-#[derive(Serialize, Clone, Debug)]
+impl FeedSummary {
+    pub fn create_cache_map(&self) -> HashMap<&str, &FeedSummaryItem> {
+        let mut map: HashMap<&str, &FeedSummaryItem> = HashMap::new();
+        for item in self.items.iter() {
+            match map.get(item.id.as_str()) {
+                Some(entry) => {
+                    if item.noticed > entry.noticed {
+                        map.insert(&item.id, item);
+                    }
+                }
+                None => {
+                    map.insert(&item.id, item);
+                }
+            }
+        }
+        map
+    }
+}
+
+#[derive(Serialize, Clone, Debug, PartialEq)]
 pub struct FeedSummaryItem {
     pub id: String,
     pub title: Option<String>,

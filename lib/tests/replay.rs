@@ -1,34 +1,9 @@
-use chrono::{DateTime, NaiveDateTime, Utc};
 use chronoutil::DateRule;
 
-use podreplay_lib::{replay_feed, FeedSummaryItem, ReplayedItem};
+mod helpers;
+use helpers::{parse_dt, summary_items};
 
-fn parse_dt(dt_str: &str) -> DateTime<Utc> {
-    let fmt = "%Y-%m-%dT%H:%M:%S";
-    let ndt = NaiveDateTime::parse_from_str(dt_str, fmt).unwrap_or_else(|_| {
-        panic!(
-            "DateTime::parse_from_str(\"{}\", \"{}\") failed with",
-            dt_str, fmt
-        )
-    });
-    DateTime::<Utc>::from_utc(ndt, Utc)
-}
-
-fn summary_items(items: Vec<(&str, &str, &str)>) -> Vec<FeedSummaryItem> {
-    items
-        .into_iter()
-        .map(|(id, published, noticed)| FeedSummaryItem {
-            id: id.to_string(),
-            title: Some(id.to_string()),
-            published: if published == "gone" {
-                None
-            } else {
-                Some(parse_dt(published))
-            },
-            noticed: parse_dt(if noticed == "pub" { published } else { noticed }),
-        })
-        .collect()
-}
+use podreplay_lib::{replay_feed, ReplayedItem};
 
 fn replayed_items<'a>(items: Vec<(&'a str, &'a str)>) -> Vec<ReplayedItem<'a>> {
     items
