@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
+pub use feed_rs::parser::ParseFeedError;
 use feed_rs::{
     model::{Entry, Feed as ParsedFeed},
-    parser,
+    parser::{self},
 };
 use serde::Serialize;
 
@@ -17,9 +18,10 @@ impl Feed {
         Feed { feed, uri }
     }
 
-    pub fn from_source(source: &[u8], uri: Option<&str>) -> Self {
-        let feed = parser::parse_with_uri(source, uri).unwrap();
-        Feed::new(feed, uri.map(|uri| uri.to_string()))
+    pub fn from_source(source: &[u8], uri: Option<&str>) -> Result<Self, ParseFeedError> {
+        let parsed = parser::parse_with_uri(source, uri)?;
+        let feed = Feed::new(parsed, uri.map(|uri| uri.to_string()));
+        Ok(feed)
     }
 
     pub fn id_map(&self) -> HashMap<&str, &Entry> {

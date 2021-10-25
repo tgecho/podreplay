@@ -1,18 +1,16 @@
 mod replay;
 mod summary;
 
-use warp::Filter;
+use axum::{handler::get, Router, Server};
 
 #[tokio::main]
 async fn main() {
-    let summary = warp::path("summary").and(warp::query().map(summary::get));
-    let replay = warp::path("replay").and(warp::query().map(replay::get));
-    let api = warp::path("api").and(summary);
+    let app = Router::new()
+        .route("/summary", get(summary::get))
+        .route("/replay", get(replay::get));
 
-    let cors = warp::cors()
-        .allow_any_origin()
-        .allow_methods(vec!["GET", "POST", "DELETE"]);
-
-    let routes = replay.or(api.with(cors));
-    warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
+    Server::bind(&"0.0.0.0:3000".parse().unwrap())
+        .serve(app.into_make_service())
+        .await
+        .unwrap();
 }
