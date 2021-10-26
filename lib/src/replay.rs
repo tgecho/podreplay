@@ -1,11 +1,12 @@
 use crate::FeedSummaryItem;
 use chrono::{DateTime, Utc};
 use chronoutil::DateRule;
+use serde::Serialize;
 use std::collections::HashMap;
 
-#[derive(Debug, PartialEq)]
-pub struct ReplayedItem<'a> {
-    pub id: &'a str,
+#[derive(Debug, PartialEq, Serialize)]
+pub struct ReplayedItem {
+    pub id: String,
     pub timestamp: DateTime<Utc>,
 }
 
@@ -49,7 +50,7 @@ pub fn replay_feed(
                             }
                             Unpublished::Never => {
                                 results.push(ReplayedItem {
-                                    id: &item.id,
+                                    id: item.id.clone(),
                                     timestamp: slot,
                                 });
                                 instances.already_replayed = true;
@@ -60,7 +61,7 @@ pub fn replay_feed(
                         // This was published after this slot, meaning we've apparently caught up.
                         // Keep replaying items at their original publication times.
                         results.push(ReplayedItem {
-                            id: &item.id,
+                            id: item.id.clone(),
                             timestamp: published,
                         });
                         instances.already_replayed = true;

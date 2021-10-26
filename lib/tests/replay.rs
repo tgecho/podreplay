@@ -5,11 +5,11 @@ use helpers::{parse_dt, summary_items};
 
 use podreplay_lib::{replay_feed, ReplayedItem};
 
-fn replayed_items<'a>(items: Vec<(&'a str, &'a str)>) -> Vec<ReplayedItem<'a>> {
+fn replayed_items<'a>(items: Vec<(&'a str, &'a str)>) -> Vec<ReplayedItem> {
     items
         .into_iter()
         .map(|(id, dt_str)| ReplayedItem {
-            id,
+            id: id.to_string(),
             timestamp: parse_dt(dt_str),
         })
         .collect()

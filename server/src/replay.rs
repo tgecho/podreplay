@@ -1,21 +1,26 @@
 use axum::{body::Body, extract::Query, response::IntoResponse, Json};
 use chrono::{DateTime, Utc};
+use chronoutil::DateRule;
 use hyper::{Response, StatusCode};
-use podreplay_lib::{Feed, FeedSummary, ParseFeedError};
+use podreplay_lib::{replay_feed, Feed, FeedSummary, ParseFeedError};
 use serde::Deserialize;
 use thiserror::Error;
 
 #[derive(Deserialize, Debug)]
 pub struct SummaryQuery {
-    start: Option<DateTime<Utc>>,
+    start: DateTime<Utc>,
     uri: String,
 }
 
-pub async fn get(query: Query<SummaryQuery>) -> Result<Json<FeedSummary>, ReplayError> {
+pub async fn get<'a>(
+    query: Query<SummaryQuery>,
+) -> Result<Json<Vec<podreplay_lib::ReplayedItem>>, ReplayError> {
     dbg!(&query);
     let feed = fetch_feed(&query.uri).await?;
     let summary: FeedSummary = feed.into();
-    Ok(Json(summary))
+    let rule = DateRule::weekly(query.start);
+    let replayed = replay_feed(&summary.items, rule, Utc::now());
+    Ok(Json(replayed))
 }
 
 async fn fetch_feed(uri: &str) -> Result<Feed, ReplayError> {
