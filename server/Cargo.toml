@@ -16,5 +16,7 @@ chrono = { version = "0.4.19", features = ["serde"] }
 reqwest = "0.11.6"
 axum = "0.2.8"
 thiserror = "1.0.30"
+chronoutil = "0.2.3"
+sqlx = {version = "0.5.9", features=["sqlite", "chrono", "macros", "migrate", "runtime-tokio-rustls"]}
 
 [features]
