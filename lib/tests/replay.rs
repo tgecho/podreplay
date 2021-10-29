@@ -23,6 +23,7 @@ fn empty_feed() {
         DateRule::daily(parse_dt("2014-11-28T21:00:00")),
         parse_dt("2014-11-28T21:00:00"),
         parse_dt("2014-12-28T21:00:00"),
+        parse_dt("2014-12-28T21:00:00"),
     );
     assert_eq!(result, vec![]);
 }
@@ -34,6 +35,7 @@ fn one_item() {
         &items,
         DateRule::daily(parse_dt("2014-11-28T21:00:00")),
         parse_dt("2014-11-28T21:00:00"),
+        parse_dt("2014-12-28T21:00:00"),
         parse_dt("2014-12-28T21:00:00"),
     );
     assert_eq!(result, replayed_items(vec![("1", "2014-11-28T21:00:00")]));
@@ -52,6 +54,7 @@ fn two_items() {
         &items,
         DateRule::daily(parse_dt("2014-11-28T21:00:00")),
         parse_dt("2014-11-28T21:00:00"),
+        parse_dt("2014-12-28T21:00:00"),
         parse_dt("2014-12-28T21:00:00"),
     );
     assert_eq!(
@@ -77,6 +80,7 @@ fn stops_repeating_at_end() {
         DateRule::weekly(parse_dt("2014-11-28T21:00:00")),
         parse_dt("2014-11-28T21:00:00"),
         parse_dt("2014-11-28T22:00:00"),
+        parse_dt("2014-11-28T22:00:00"),
     );
     assert_eq!(result, replayed_items(vec![("1", "2014-11-28T21:00:00")]));
 }
@@ -96,6 +100,7 @@ fn resumes_original_schedule_once_caught_up() {
         &items,
         DateRule::daily(parse_dt("2014-11-03T20:00:00")),
         parse_dt("2014-11-03T20:00:00"),
+        parse_dt("2014-11-12T22:00:00"),
         parse_dt("2014-11-12T22:00:00"),
     );
     assert_eq!(
@@ -122,6 +127,7 @@ fn does_not_duplicate_a_rescheduled_item_that_already_played() {
         DateRule::daily(parse_dt("2014-11-03T20:00:00")),
         parse_dt("2014-11-03T20:00:00"),
         parse_dt("2014-11-12T22:00:00"),
+        parse_dt("2014-11-12T22:00:00"),
     );
     assert_eq!(result, replayed_items(vec![("1", "2014-11-03T20:00:00"),]));
 }
@@ -140,6 +146,7 @@ fn does_not_schedule_a_replay_if_a_reschedule_is_noticed_before_slot() {
         &items,
         DateRule::daily(parse_dt("2014-11-06T20:00:00")),
         parse_dt("2014-11-06T20:00:00"),
+        parse_dt("2014-12-12T22:00:00"),
         parse_dt("2014-12-12T22:00:00"),
     );
     assert_eq!(
@@ -166,6 +173,7 @@ fn moved_forward_noticed_after_slot() {
         DateRule::daily(parse_dt("2014-11-03T20:00:00")),
         parse_dt("2014-11-03T20:00:00"),
         parse_dt("2014-12-12T22:00:00"),
+        parse_dt("2014-12-12T22:00:00"),
     );
     assert_eq!(
         result,
@@ -190,6 +198,7 @@ fn moved_forward_noticed_before_slot() {
         &items,
         DateRule::daily(parse_dt("2014-11-06T20:00:00")),
         parse_dt("2014-11-06T20:00:00"),
+        parse_dt("2014-12-12T22:00:00"),
         parse_dt("2014-12-12T22:00:00"),
     );
     assert_eq!(
@@ -216,6 +225,7 @@ fn moved_backward_noticed_before_slot() {
         DateRule::daily(parse_dt("2014-11-09T20:00:00")),
         parse_dt("2014-11-09T20:00:00"),
         parse_dt("2014-12-12T22:00:00"),
+        parse_dt("2014-12-12T22:00:00"),
     );
     assert_eq!(
         result,
@@ -241,6 +251,7 @@ fn moved_backward_noticed_after_slot() {
         DateRule::daily(parse_dt("2014-11-06T10:00:00")),
         parse_dt("2014-11-06T10:00:00"),
         parse_dt("2014-12-12T22:00:00"),
+        parse_dt("2014-11-02T09:00:00"),
     );
     assert_eq!(
         result,
@@ -264,6 +275,7 @@ fn published_retroactively_noticed_before_slot() {
         &items,
         DateRule::daily(parse_dt("2014-11-06T10:00:00")),
         parse_dt("2014-11-06T10:00:00"),
+        parse_dt("2014-12-12T22:00:00"),
         parse_dt("2014-12-12T22:00:00"),
     );
     assert_eq!(
@@ -289,6 +301,7 @@ fn published_retroactively_noticed_after_slot() {
         DateRule::daily(parse_dt("2014-11-10T20:00:00")),
         parse_dt("2014-11-10T20:00:00"),
         parse_dt("2014-12-12T22:00:00"),
+        parse_dt("2014-11-02T09:00:00"),
     );
     assert_eq!(
         result,
@@ -317,6 +330,7 @@ fn published_retroactively_noticed_after_slot_and_missed_a_slot() {
         DateRule::daily(parse_dt("2014-11-10T10:00:00")),
         parse_dt("2014-11-10T10:00:00"),
         parse_dt("2014-12-12T22:00:00"),
+        parse_dt("2014-11-02T09:00:00"),
     );
     assert_eq!(
         result,
@@ -345,6 +359,7 @@ fn unpublish_noticed_after_slot() {
         DateRule::daily(parse_dt("2014-11-10T10:00:00")),
         parse_dt("2014-11-10T10:00:00"),
         parse_dt("2014-12-12T22:00:00"),
+        parse_dt("2014-12-12T22:00:00"),
     );
     assert_eq!(
         result,
@@ -372,6 +387,7 @@ fn unpublish_noticed_before_slot() {
         DateRule::daily(parse_dt("2014-11-12T10:00:00")),
         parse_dt("2014-11-12T10:00:00"),
         parse_dt("2014-12-12T22:00:00"),
+        parse_dt("2014-12-12T22:00:00"),
     );
     assert_eq!(
         result,
@@ -379,6 +395,33 @@ fn unpublish_noticed_before_slot() {
             // We noticed the unpublish before we got to the slot, so we
             // publish the next available episode in that slot
             ("2", "2014-11-12T10:00:00"),
+        ])
+    );
+}
+
+#[test]
+fn items_in_a_retroactively_subscribed_feed_appear_properly() {
+    let items = cached_entries(
+        1,
+        vec![
+            ("1", "2014-11-01T21:00:00", "2014-12-20T10:00:00"),
+            ("2", "2014-11-03T21:00:00", "2014-12-20T10:00:00"),
+            ("3", "2014-11-06T21:00:00", "2014-12-20T10:00:00"),
+        ],
+    );
+    let result = replay_feed(
+        &items,
+        DateRule::daily(parse_dt("2014-11-04T10:00:00")),
+        parse_dt("2014-11-04T10:00:00"),
+        parse_dt("2014-12-12T22:00:00"),
+        parse_dt("2014-12-20T10:00:00"),
+    );
+    assert_eq!(
+        result,
+        replayed_items(vec![
+            ("1", "2014-11-04T10:00:00"),
+            ("2", "2014-11-05T10:00:00"),
+            ("3", "2014-11-06T21:00:00"),
         ])
     );
 }

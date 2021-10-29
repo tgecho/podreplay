@@ -1,7 +1,8 @@
 CREATE TABLE feeds (
     id INTEGER NOT NULL PRIMARY KEY,
     uri TEXT NOT NULL,
-    last_fetched DATETIME UTC,
+    first_fetched DATETIME UTC NOT NULL,
+    last_fetched DATETIME UTC NOT NULL,
     etag TEXT,
     UNIQUE(uri)
 );

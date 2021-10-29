@@ -14,16 +14,17 @@ pub fn replay_feed(
     items: &[CachedEntry],
     rule: DateRule<DateTime<Utc>>,
     start: DateTime<Utc>,
-    until: DateTime<Utc>,
+    now: DateTime<Utc>,
+    feed_noticed: DateTime<Utc>,
 ) -> Vec<ReplayedItem> {
     let mut published_before_cutoff = items
         .iter()
-        .filter(|item| item.published.map_or(false, |p| p <= until));
+        .filter(|item| item.published.map_or(false, |p| p <= now));
     let mut instances_by_id = create_instances_by_id(items);
     let mut delayed = DelayedItems::new();
     let mut results = Vec::new();
 
-    for slot in rule.with_end(until) {
+    for slot in rule.with_end(now) {
         let some_slot = Some(slot);
         loop {
             let next_item = delayed
@@ -35,7 +36,7 @@ pub fn replay_feed(
                         continue; // try another item
                     }
                     if item.published <= some_slot {
-                        if item.noticed > slot && !instances.is_first_noticed(item, start) {
+                        if item.noticed > slot && start >= feed_noticed {
                             delayed.add(item);
                             continue; // was published retroactively AFTER we replayed in this slot
                         }
@@ -122,15 +123,9 @@ impl<'a> Scheduled<'a> {
             _ => Unpublished::Never,
         }
     }
-
-    fn is_first_noticed(&self, item: &CachedEntry, start: DateTime<Utc>) -> bool {
-        (self.items.iter())
-            .filter(|i| i.noticed < start)
-            .min_by_key(|i| i.noticed)
-            .map_or(false, |first| first.published == item.published)
-    }
 }
 
+#[derive(Debug)]
 struct DelayedItems<'a>(Vec<&'a CachedEntry>);
 impl<'a> DelayedItems<'a> {
     fn new() -> Self {

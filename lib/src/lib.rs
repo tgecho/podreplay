@@ -11,7 +11,8 @@ pub use replay::{replay_feed, ReplayedItem};
 pub struct FeedMeta {
     pub id: i64,
     pub uri: String,
-    pub last_fetched: Option<DateTime<Utc>>,
+    pub first_fetched: DateTime<Utc>,
+    pub last_fetched: DateTime<Utc>,
     pub etag: Option<String>,
 }
 

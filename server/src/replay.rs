@@ -42,15 +42,13 @@ pub async fn get<'a>(
     // 304 but need the feed to generate a new version with the latest scheduled
     // episode.
 
-    let feed = fetch_feed(&query.uri).await?;
-    let feed_id = db
-        .update_feed_meta(&query.uri, &now, Some("TODO: etag"))
-        .await?;
+    let (feed, fetched_etag) = fetch_feed(&query.uri).await?;
+    let feed_meta = db.update_feed_meta(&query.uri, &now, fetched_etag).await?;
 
-    let cached_entries = db.get_entries(feed_id).await?;
+    let cached_entries = db.get_entries(feed_meta.id).await?;
     let cached_entry_map = create_cached_entry_map(&cached_entries);
 
-    let changes = diff_feed(&feed.id_map(), &cached_entry_map, feed_id, now);
+    let changes = diff_feed(&feed.id_map(), &cached_entry_map, feed_meta.id, now);
 
     let entries = if changes.is_empty() {
         cached_entries
@@ -60,27 +58,35 @@ pub async fn get<'a>(
         // matter since by definition anyone who starts a replay will only be
         // moving forward. If we give the ability to pick a "podcast start",
         // that shouldn't affect anything either.
-        db.update_cached_entries(feed_id, &changes).await?
+        db.update_cached_entries(feed_meta.id, &changes).await?
     };
 
     let rule = DateRule::weekly(query.start);
 
-    let replayed = replay_feed(&entries, rule, query.start, now);
+    let replayed = replay_feed(&entries, rule, query.start, now, feed_meta.first_fetched);
 
     // TODO: use replayed and the fetched feed to build a final feed
     Ok(Json(replayed))
 }
 
-async fn fetch_feed(uri: &str) -> Result<Feed, ReplayError> {
+async fn fetch_feed(uri: &str) -> Result<(Feed, Option<String>), ReplayError> {
     let client = reqwest::Client::builder().build()?;
     let resp = client
         .get(uri)
         .header("User-Agent", "podreplay/0.1")
         .send()
         .await?;
+
+    let etag = resp
+        .headers()
+        .get("etag")
+        .and_then(|e| e.to_str().ok())
+        .map(|e| e.to_string());
+
     let body = resp.bytes().await?;
     let feed = Feed::from_source(&body, Some(uri))?;
-    Ok(feed)
+
+    Ok((feed, etag))
 }
 
 #[derive(Error, Debug)]

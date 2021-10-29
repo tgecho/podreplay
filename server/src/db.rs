@@ -29,13 +29,13 @@ impl Db {
     pub async fn update_feed_meta(
         &self,
         uri: &str,
-        last_fetched: &DateTime<Utc>,
-        etag: Option<&str>,
-    ) -> Result<i64, sqlx::Error> {
+        timestamp: &DateTime<Utc>,
+        etag: Option<String>,
+    ) -> Result<FeedMeta, sqlx::Error> {
         let id = sqlx::query_scalar!(
             r#"
-            INSERT INTO feeds (uri, last_fetched, etag)
-            VALUES (?, ?, ?)
+            INSERT INTO feeds (uri, first_fetched, last_fetched, etag)
+            VALUES (?, ?, ?, ?)
             ON CONFLICT(uri)
             DO UPDATE SET
                 last_fetched=excluded.last_fetched,
@@ -43,13 +43,16 @@ impl Db {
             RETURNING id
             ;"#,
             uri,
-            last_fetched,
+            timestamp,
+            timestamp,
             etag
         )
         .fetch_one(&self.pool)
         .await?
         .unwrap(); // TODO: handle this?
-        Ok(id)
+        sqlx::query_as!(FeedMeta, "SELECT * FROM feeds WHERE id = ?", id)
+            .fetch_one(&self.pool)
+            .await
     }
 
     pub async fn get_entries(&self, feed_id: i64) -> Result<Vec<CachedEntry>, sqlx::Error> {
