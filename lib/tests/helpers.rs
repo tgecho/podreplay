@@ -1,5 +1,5 @@
 use chrono::{DateTime, NaiveDateTime, Utc};
-use podreplay_lib::FeedSummaryItem;
+use podreplay_lib::CachedEntry;
 
 pub fn parse_dt(dt_str: &str) -> DateTime<Utc> {
     let fmt = "%Y-%m-%dT%H:%M:%S";
@@ -12,12 +12,12 @@ pub fn parse_dt(dt_str: &str) -> DateTime<Utc> {
     DateTime::<Utc>::from_utc(ndt, Utc)
 }
 
-pub fn summary_items(items: Vec<(&str, &str, &str)>) -> Vec<FeedSummaryItem> {
+pub fn cached_entries(feed_id: i64, items: Vec<(&str, &str, &str)>) -> Vec<CachedEntry> {
     items
         .into_iter()
-        .map(|(id, published, noticed)| FeedSummaryItem {
+        .map(|(id, published, noticed)| CachedEntry {
+            feed_id,
             id: id.to_string(),
-            title: None,
             published: if published == "gone" {
                 None
             } else {

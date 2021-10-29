@@ -1,4 +1,4 @@
-use crate::FeedSummaryItem;
+use crate::CachedEntry;
 use chrono::{DateTime, Utc};
 use chronoutil::DateRule;
 use serde::Serialize;
@@ -11,8 +11,9 @@ pub struct ReplayedItem {
 }
 
 pub fn replay_feed(
-    items: &[FeedSummaryItem],
+    items: &[CachedEntry],
     rule: DateRule<DateTime<Utc>>,
+    start: DateTime<Utc>,
     until: DateTime<Utc>,
 ) -> Vec<ReplayedItem> {
     let mut published_before_cutoff = items
@@ -34,7 +35,7 @@ pub fn replay_feed(
                         continue; // try another item
                     }
                     if item.published <= some_slot {
-                        if item.noticed > slot {
+                        if item.noticed > slot && !instances.is_first_noticed(item, start) {
                             delayed.add(item);
                             continue; // was published retroactively AFTER we replayed in this slot
                         }
@@ -77,7 +78,7 @@ pub fn replay_feed(
     results
 }
 
-fn create_instances_by_id(items: &[FeedSummaryItem]) -> HashMap<&String, Scheduled> {
+fn create_instances_by_id(items: &[CachedEntry]) -> HashMap<&String, Scheduled> {
     let mut rescheduled = HashMap::new();
     for item in items.iter() {
         let scheduled = rescheduled.entry(&item.id).or_insert(Scheduled {
@@ -91,7 +92,7 @@ fn create_instances_by_id(items: &[FeedSummaryItem]) -> HashMap<&String, Schedul
 
 struct Scheduled<'a> {
     already_replayed: bool,
-    items: Vec<&'a FeedSummaryItem>,
+    items: Vec<&'a CachedEntry>,
 }
 
 enum Unpublished {
@@ -101,14 +102,14 @@ enum Unpublished {
 }
 
 impl<'a> Scheduled<'a> {
-    fn rescheduled_before<'b>(&'a self, slot: DateTime<Utc>, item: &'b FeedSummaryItem) -> bool {
+    fn rescheduled_before<'b>(&'a self, slot: DateTime<Utc>, item: &'b CachedEntry) -> bool {
         self.items.len() > 1
             && (self.items.iter()).any(|i| {
                 i.noticed <= slot && i.noticed >= item.noticed && i.published > item.published
             })
     }
 
-    fn finally_unpublished(&'a self, slot: DateTime<Utc>) -> Unpublished {
+    fn finally_unpublished(&self, slot: DateTime<Utc>) -> Unpublished {
         let item = self.items.iter().max_by_key(|i| i.noticed);
         match item {
             Some(item) if item.published.is_none() => {
@@ -121,20 +122,27 @@ impl<'a> Scheduled<'a> {
             _ => Unpublished::Never,
         }
     }
+
+    fn is_first_noticed(&self, item: &CachedEntry, start: DateTime<Utc>) -> bool {
+        (self.items.iter())
+            .filter(|i| i.noticed < start)
+            .min_by_key(|i| i.noticed)
+            .map_or(false, |first| first.published == item.published)
+    }
 }
 
-struct DelayedItems<'a>(Vec<&'a FeedSummaryItem>);
+struct DelayedItems<'a>(Vec<&'a CachedEntry>);
 impl<'a> DelayedItems<'a> {
     fn new() -> Self {
         DelayedItems(Vec::new())
     }
 
-    fn add<'b>(&'b mut self, item: &'a FeedSummaryItem) {
+    fn add<'b>(&'b mut self, item: &'a CachedEntry) {
         self.0.push(item);
         self.0.sort_by_key(|i| i.published);
     }
 
-    fn pop_eligible<'b>(&'b mut self, slot: DateTime<Utc>) -> Option<&'a FeedSummaryItem> {
+    fn pop_eligible<'b>(&'b mut self, slot: DateTime<Utc>) -> Option<&'a CachedEntry> {
         let delayed_index = self.0.iter().position(|i| i.noticed <= slot);
         delayed_index.map(|index| self.0.remove(index))
     }

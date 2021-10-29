@@ -8,6 +8,8 @@ use feed_rs::{
 };
 use serde::Serialize;
 
+use crate::CachedEntry;
+
 pub struct Feed {
     feed: ParsedFeed,
     uri: Option<String>,
@@ -40,23 +42,21 @@ pub struct FeedSummary {
     pub items: Vec<FeedSummaryItem>,
 }
 
-impl FeedSummary {
-    pub fn create_cache_map(&self) -> HashMap<&str, &FeedSummaryItem> {
-        let mut map: HashMap<&str, &FeedSummaryItem> = HashMap::new();
-        for item in self.items.iter() {
-            match map.get(item.id.as_str()) {
-                Some(entry) => {
-                    if item.noticed > entry.noticed {
-                        map.insert(&item.id, item);
-                    }
-                }
-                None => {
+pub fn create_cached_entry_map(entries: &[CachedEntry]) -> HashMap<&str, &CachedEntry> {
+    let mut map: HashMap<&str, &CachedEntry> = HashMap::new();
+    for item in entries.iter() {
+        match map.get(item.id.as_str()) {
+            Some(entry) => {
+                if item.noticed > entry.noticed {
                     map.insert(&item.id, item);
                 }
             }
+            None => {
+                map.insert(&item.id, item);
+            }
         }
-        map
     }
+    map
 }
 
 #[derive(Serialize, Clone, Debug, PartialEq)]

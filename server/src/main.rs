@@ -3,21 +3,17 @@ mod replay;
 mod summary;
 
 use axum::{handler::get, AddExtensionLayer, Router, Server};
-use sqlx::SqlitePool;
+use db::Db;
 
 #[tokio::main]
 async fn main() {
-    let pool = SqlitePool::connect("sqlite://test.sqlite").await.unwrap();
-    // let result = sqlx::query_as::<_, (i32,)>("SELECT 1;")
-    //     .fetch_one(&pool)
-    //     .await
-    //     .unwrap();
-    // dbg!(result);
+    let db = Db::new("sqlite://test.sqlite").await.unwrap();
+    println!("SQLite version {}", db.get_version().await.unwrap());
 
     let app = Router::new()
         .route("/summary", get(summary::get))
         .route("/replay", get(replay::get))
-        .layer(AddExtensionLayer::new(pool));
+        .layer(AddExtensionLayer::new(db));
 
     Server::bind(&"0.0.0.0:3000".parse().unwrap())
         .serve(app.into_make_service())

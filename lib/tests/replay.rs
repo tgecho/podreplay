@@ -1,7 +1,7 @@
 use chronoutil::DateRule;
 
 mod helpers;
-use helpers::{parse_dt, summary_items};
+use helpers::{cached_entries, parse_dt};
 
 use podreplay_lib::{replay_feed, ReplayedItem};
 
@@ -17,10 +17,11 @@ fn replayed_items<'a>(items: Vec<(&'a str, &'a str)>) -> Vec<ReplayedItem> {
 
 #[test]
 fn empty_feed() {
-    let items = summary_items(vec![]);
+    let items = cached_entries(1, vec![]);
     let result = replay_feed(
         &items,
         DateRule::daily(parse_dt("2014-11-28T21:00:00")),
+        parse_dt("2014-11-28T21:00:00"),
         parse_dt("2014-12-28T21:00:00"),
     );
     assert_eq!(result, vec![]);
@@ -28,10 +29,11 @@ fn empty_feed() {
 
 #[test]
 fn one_item() {
-    let items = summary_items(vec![("1", "2013-10-10T21:00:00", "pub")]);
+    let items = cached_entries(1, vec![("1", "2013-10-10T21:00:00", "pub")]);
     let result = replay_feed(
         &items,
         DateRule::daily(parse_dt("2014-11-28T21:00:00")),
+        parse_dt("2014-11-28T21:00:00"),
         parse_dt("2014-12-28T21:00:00"),
     );
     assert_eq!(result, replayed_items(vec![("1", "2014-11-28T21:00:00")]));
@@ -39,13 +41,17 @@ fn one_item() {
 
 #[test]
 fn two_items() {
-    let items = summary_items(vec![
-        ("1", "2013-10-10T21:00:00", "pub"),
-        ("2", "2013-11-10T21:00:00", "pub"),
-    ]);
+    let items = cached_entries(
+        1,
+        vec![
+            ("1", "2013-10-10T21:00:00", "pub"),
+            ("2", "2013-11-10T21:00:00", "pub"),
+        ],
+    );
     let result = replay_feed(
         &items,
         DateRule::daily(parse_dt("2014-11-28T21:00:00")),
+        parse_dt("2014-11-28T21:00:00"),
         parse_dt("2014-12-28T21:00:00"),
     );
     assert_eq!(
@@ -59,13 +65,17 @@ fn two_items() {
 
 #[test]
 fn stops_repeating_at_end() {
-    let items = summary_items(vec![
-        ("1", "2013-11-28T21:00:00", "pub"),
-        ("2", "2013-12-28T21:00:00", "pub"),
-    ]);
+    let items = cached_entries(
+        1,
+        vec![
+            ("1", "2013-11-28T21:00:00", "pub"),
+            ("2", "2013-12-28T21:00:00", "pub"),
+        ],
+    );
     let result = replay_feed(
         &items,
         DateRule::weekly(parse_dt("2014-11-28T21:00:00")),
+        parse_dt("2014-11-28T21:00:00"),
         parse_dt("2014-11-28T22:00:00"),
     );
     assert_eq!(result, replayed_items(vec![("1", "2014-11-28T21:00:00")]));
@@ -73,15 +83,19 @@ fn stops_repeating_at_end() {
 
 #[test]
 fn resumes_original_schedule_once_caught_up() {
-    let items = summary_items(vec![
-        ("1", "2014-11-01T09:00:00", "pub"),
-        ("2", "2014-11-04T21:00:00", "pub"),
-        ("3", "2014-11-09T22:00:00", "pub"),
-        ("4", "2014-11-13T22:00:00", "pub"),
-    ]);
+    let items = cached_entries(
+        1,
+        vec![
+            ("1", "2014-11-01T09:00:00", "pub"),
+            ("2", "2014-11-04T21:00:00", "pub"),
+            ("3", "2014-11-09T22:00:00", "pub"),
+            ("4", "2014-11-13T22:00:00", "pub"),
+        ],
+    );
     let result = replay_feed(
         &items,
         DateRule::daily(parse_dt("2014-11-03T20:00:00")),
+        parse_dt("2014-11-03T20:00:00"),
         parse_dt("2014-11-12T22:00:00"),
     );
     assert_eq!(
@@ -96,13 +110,17 @@ fn resumes_original_schedule_once_caught_up() {
 
 #[test]
 fn does_not_duplicate_a_rescheduled_item_that_already_played() {
-    let items = summary_items(vec![
-        ("1", "2014-11-01T09:00:00", "pub"),
-        ("1", "2014-11-04T21:00:00", "pub"),
-    ]);
+    let items = cached_entries(
+        1,
+        vec![
+            ("1", "2014-11-01T09:00:00", "pub"),
+            ("1", "2014-11-04T21:00:00", "pub"),
+        ],
+    );
     let result = replay_feed(
         &items,
         DateRule::daily(parse_dt("2014-11-03T20:00:00")),
+        parse_dt("2014-11-03T20:00:00"),
         parse_dt("2014-11-12T22:00:00"),
     );
     assert_eq!(result, replayed_items(vec![("1", "2014-11-03T20:00:00"),]));
@@ -110,14 +128,18 @@ fn does_not_duplicate_a_rescheduled_item_that_already_played() {
 
 #[test]
 fn does_not_schedule_a_replay_if_a_reschedule_is_noticed_before_slot() {
-    let items = summary_items(vec![
-        ("1", "2014-11-01T09:00:00", "pub"),
-        ("2", "2014-11-02T21:00:00", "pub"),
-        ("1", "2014-11-04T21:00:00", "pub"),
-    ]);
+    let items = cached_entries(
+        1,
+        vec![
+            ("1", "2014-11-01T09:00:00", "pub"),
+            ("2", "2014-11-02T21:00:00", "pub"),
+            ("1", "2014-11-04T21:00:00", "pub"),
+        ],
+    );
     let result = replay_feed(
         &items,
         DateRule::daily(parse_dt("2014-11-06T20:00:00")),
+        parse_dt("2014-11-06T20:00:00"),
         parse_dt("2014-12-12T22:00:00"),
     );
     assert_eq!(
@@ -131,14 +153,18 @@ fn does_not_schedule_a_replay_if_a_reschedule_is_noticed_before_slot() {
 
 #[test]
 fn moved_forward_noticed_after_slot() {
-    let items = summary_items(vec![
-        ("1", "2014-11-01T09:00:00", "pub"),
-        ("2", "2014-11-02T21:00:00", "pub"),
-        ("1", "2014-11-04T21:00:00", "pub"),
-    ]);
+    let items = cached_entries(
+        1,
+        vec![
+            ("1", "2014-11-01T09:00:00", "pub"),
+            ("2", "2014-11-02T21:00:00", "pub"),
+            ("1", "2014-11-04T21:00:00", "pub"),
+        ],
+    );
     let result = replay_feed(
         &items,
         DateRule::daily(parse_dt("2014-11-03T20:00:00")),
+        parse_dt("2014-11-03T20:00:00"),
         parse_dt("2014-12-12T22:00:00"),
     );
     assert_eq!(
@@ -152,14 +178,18 @@ fn moved_forward_noticed_after_slot() {
 
 #[test]
 fn moved_forward_noticed_before_slot() {
-    let items = summary_items(vec![
-        ("1", "2014-11-01T09:00:00", "pub"),
-        ("2", "2014-11-02T21:00:00", "pub"),
-        ("1", "2014-11-04T21:00:00", "pub"),
-    ]);
+    let items = cached_entries(
+        1,
+        vec![
+            ("1", "2014-11-01T09:00:00", "pub"),
+            ("2", "2014-11-02T21:00:00", "pub"),
+            ("1", "2014-11-04T21:00:00", "pub"),
+        ],
+    );
     let result = replay_feed(
         &items,
         DateRule::daily(parse_dt("2014-11-06T20:00:00")),
+        parse_dt("2014-11-06T20:00:00"),
         parse_dt("2014-12-12T22:00:00"),
     );
     assert_eq!(
@@ -173,14 +203,18 @@ fn moved_forward_noticed_before_slot() {
 
 #[test]
 fn moved_backward_noticed_before_slot() {
-    let items = summary_items(vec![
-        ("1", "2014-11-01T21:00:00", "2014-11-08T21:00:00"),
-        ("2", "2014-11-02T09:00:00", "pub"),
-        ("1", "2014-11-06T21:00:00", "pub"),
-    ]);
+    let items = cached_entries(
+        1,
+        vec![
+            ("1", "2014-11-01T21:00:00", "2014-11-08T21:00:00"),
+            ("2", "2014-11-02T09:00:00", "pub"),
+            ("1", "2014-11-06T21:00:00", "pub"),
+        ],
+    );
     let result = replay_feed(
         &items,
         DateRule::daily(parse_dt("2014-11-09T20:00:00")),
+        parse_dt("2014-11-09T20:00:00"),
         parse_dt("2014-12-12T22:00:00"),
     );
     assert_eq!(
@@ -194,14 +228,18 @@ fn moved_backward_noticed_before_slot() {
 
 #[test]
 fn moved_backward_noticed_after_slot() {
-    let items = summary_items(vec![
-        ("1", "2014-11-01T21:00:00", "2014-11-08T21:00:00"),
-        ("2", "2014-11-02T09:00:00", "pub"),
-        ("1", "2014-11-06T20:00:00", "pub"),
-    ]);
+    let items = cached_entries(
+        1,
+        vec![
+            ("1", "2014-11-01T21:00:00", "2014-11-08T21:00:00"),
+            ("2", "2014-11-02T09:00:00", "pub"),
+            ("1", "2014-11-06T20:00:00", "pub"),
+        ],
+    );
     let result = replay_feed(
         &items,
         DateRule::daily(parse_dt("2014-11-06T10:00:00")),
+        parse_dt("2014-11-06T10:00:00"),
         parse_dt("2014-12-12T22:00:00"),
     );
     assert_eq!(
@@ -215,13 +253,17 @@ fn moved_backward_noticed_after_slot() {
 
 #[test]
 fn published_retroactively_noticed_before_slot() {
-    let items = summary_items(vec![
-        ("1", "2014-11-01T21:00:00", "2014-11-05T21:00:00"),
-        ("2", "2014-11-02T09:00:00", "pub"),
-    ]);
+    let items = cached_entries(
+        1,
+        vec![
+            ("1", "2014-11-01T21:00:00", "2014-11-05T21:00:00"),
+            ("2", "2014-11-02T09:00:00", "pub"),
+        ],
+    );
     let result = replay_feed(
         &items,
         DateRule::daily(parse_dt("2014-11-06T10:00:00")),
+        parse_dt("2014-11-06T10:00:00"),
         parse_dt("2014-12-12T22:00:00"),
     );
     assert_eq!(
@@ -235,13 +277,17 @@ fn published_retroactively_noticed_before_slot() {
 
 #[test]
 fn published_retroactively_noticed_after_slot() {
-    let items = summary_items(vec![
-        ("1", "2014-11-01T21:00:00", "2014-11-11T10:00:00"),
-        ("2", "2014-11-02T09:00:00", "pub"),
-    ]);
+    let items = cached_entries(
+        1,
+        vec![
+            ("1", "2014-11-01T21:00:00", "2014-11-11T10:00:00"),
+            ("2", "2014-11-02T09:00:00", "pub"),
+        ],
+    );
     let result = replay_feed(
         &items,
         DateRule::daily(parse_dt("2014-11-10T20:00:00")),
+        parse_dt("2014-11-10T20:00:00"),
         parse_dt("2014-12-12T22:00:00"),
     );
     assert_eq!(
@@ -255,13 +301,21 @@ fn published_retroactively_noticed_after_slot() {
 
 #[test]
 fn published_retroactively_noticed_after_slot_and_missed_a_slot() {
-    let items = summary_items(vec![
-        ("1", "2014-11-01T21:00:00", "2014-11-11T21:00:00"),
-        ("2", "2014-11-02T09:00:00", "pub"),
-    ]);
+    let items = cached_entries(
+        1,
+        vec![
+            // TODO: OK, so the issue here is that this is the is_first_noticed
+            // but it falls AFTER the start of this replay. If we pass in the
+            // actual concrete start time I guess we could filter out any
+            // noticed before that timestamp while keeping at least one total
+            ("1", "2014-11-01T21:00:00", "2014-11-11T21:00:00"),
+            ("2", "2014-11-02T09:00:00", "pub"),
+        ],
+    );
     let result = replay_feed(
         &items,
         DateRule::daily(parse_dt("2014-11-10T10:00:00")),
+        parse_dt("2014-11-10T10:00:00"),
         parse_dt("2014-12-12T22:00:00"),
     );
     assert_eq!(
@@ -278,14 +332,18 @@ fn published_retroactively_noticed_after_slot_and_missed_a_slot() {
 
 #[test]
 fn unpublish_noticed_after_slot() {
-    let items = summary_items(vec![
-        ("1", "2014-11-01T21:00:00", "pub"),
-        ("2", "2014-11-03T21:00:00", "pub"),
-        ("1", "gone", "2014-11-11T21:00:00"),
-    ]);
+    let items = cached_entries(
+        1,
+        vec![
+            ("1", "2014-11-01T21:00:00", "pub"),
+            ("2", "2014-11-03T21:00:00", "pub"),
+            ("1", "gone", "2014-11-11T21:00:00"),
+        ],
+    );
     let result = replay_feed(
         &items,
         DateRule::daily(parse_dt("2014-11-10T10:00:00")),
+        parse_dt("2014-11-10T10:00:00"),
         parse_dt("2014-12-12T22:00:00"),
     );
     assert_eq!(
@@ -301,14 +359,18 @@ fn unpublish_noticed_after_slot() {
 
 #[test]
 fn unpublish_noticed_before_slot() {
-    let items = summary_items(vec![
-        ("1", "2014-11-01T21:00:00", "pub"),
-        ("2", "2014-11-03T21:00:00", "pub"),
-        ("1", "gone", "2014-11-10T21:00:00"),
-    ]);
+    let items = cached_entries(
+        1,
+        vec![
+            ("1", "2014-11-01T21:00:00", "pub"),
+            ("2", "2014-11-03T21:00:00", "pub"),
+            ("1", "gone", "2014-11-10T21:00:00"),
+        ],
+    );
     let result = replay_feed(
         &items,
         DateRule::daily(parse_dt("2014-11-12T10:00:00")),
+        parse_dt("2014-11-12T10:00:00"),
         parse_dt("2014-12-12T22:00:00"),
     );
     assert_eq!(

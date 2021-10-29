@@ -1,9 +1,10 @@
 use feed_rs::model::{Entry, Feed as ParsedFeed};
-use podreplay_lib::{diff_feed, Feed, FeedSummary};
+use podreplay_lib::feed::create_cached_entry_map;
+use podreplay_lib::{diff_feed, Feed};
 use std::collections::HashMap;
 
 mod helpers;
-use helpers::{parse_dt, summary_items};
+use helpers::{cached_entries, parse_dt};
 
 fn entry(id: &str, published: &str) -> Entry {
     Entry {
@@ -53,20 +54,12 @@ fn feed(items: Vec<(&str, &str)>) -> Feed {
     )
 }
 
-fn summary(items: Vec<(&str, &str, &str)>) -> FeedSummary {
-    FeedSummary {
-        title: None,
-        uri: None,
-        items: summary_items(items),
-    }
-}
-
 #[test]
 fn new_feed() {
     let item_map = HashMap::new();
     let cached_map = HashMap::new();
     let now = parse_dt("2013-10-10T21:00:00");
-    let updates = diff_feed(&item_map, &cached_map, now);
+    let updates = diff_feed(&item_map, &cached_map, 1, now);
     assert_eq!(updates, vec![]);
 }
 
@@ -76,10 +69,10 @@ fn new_entry() {
     let item_map = feed.id_map();
     let cached_map = HashMap::new();
     let now = parse_dt("2013-10-10T21:00:00");
-    let updates = diff_feed(&item_map, &cached_map, now);
+    let updates = diff_feed(&item_map, &cached_map, 1, now);
     assert_eq!(
         updates,
-        summary_items(vec![("1", "2013-10-01T21:00:00", "2013-10-10T21:00:00")])
+        cached_entries(1, vec![("1", "2013-10-01T21:00:00", "2013-10-10T21:00:00")])
     );
 }
 
@@ -88,13 +81,13 @@ fn updated_entry() {
     let feed = feed(vec![("1", "2013-10-02T21:00:00")]);
     let item_map = feed.id_map();
 
-    let cached = summary(vec![("1", "2013-10-01T21:00:00", "2013-10-01T22:00:00")]);
-    let cached_map = cached.create_cache_map();
+    let cached = cached_entries(1, vec![("1", "2013-10-01T21:00:00", "2013-10-01T22:00:00")]);
+    let cached_map = create_cached_entry_map(&cached);
     let now = parse_dt("2013-10-10T21:00:00");
-    let updates = diff_feed(&item_map, &cached_map, now);
+    let updates = diff_feed(&item_map, &cached_map, 1, now);
     assert_eq!(
         updates,
-        summary_items(vec![("1", "2013-10-02T21:00:00", "2013-10-10T21:00:00")])
+        cached_entries(1, vec![("1", "2013-10-02T21:00:00", "2013-10-10T21:00:00")])
     );
 }
 
@@ -102,13 +95,13 @@ fn updated_entry() {
 fn removed_entry() {
     let feed = feed(vec![]);
     let item_map = feed.id_map();
-    let cached = summary(vec![("1", "2013-09-01T21:00:00", "2013-09-01T22:00:00")]);
-    let cached_map = cached.create_cache_map();
+    let cached = cached_entries(1, vec![("1", "2013-09-01T21:00:00", "2013-09-01T22:00:00")]);
+    let cached_map = create_cached_entry_map(&cached);
     let now = parse_dt("2013-10-10T21:00:00");
-    let updates = diff_feed(&item_map, &cached_map, now);
+    let updates = diff_feed(&item_map, &cached_map, 1, now);
     assert_eq!(
         updates,
-        summary_items(vec![("1", "gone", "2013-10-10T21:00:00")])
+        cached_entries(1, vec![("1", "gone", "2013-10-10T21:00:00")])
     );
 }
 
@@ -116,9 +109,9 @@ fn removed_entry() {
 fn no_change() {
     let feed = feed(vec![("1", "2013-10-02T21:00:00")]);
     let item_map = feed.id_map();
-    let cached = summary(vec![("1", "2013-10-02T21:00:00", "2013-09-01T22:00:00")]);
-    let cached_map = cached.create_cache_map();
+    let cached = cached_entries(1, vec![("1", "2013-10-02T21:00:00", "2013-09-01T22:00:00")]);
+    let cached_map = create_cached_entry_map(&cached);
     let now = parse_dt("2013-10-10T21:00:00");
-    let updates = diff_feed(&item_map, &cached_map, now);
-    assert_eq!(updates, summary_items(vec![]));
+    let updates = diff_feed(&item_map, &cached_map, 1, now);
+    assert_eq!(updates, cached_entries(1, vec![]));
 }
