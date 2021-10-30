@@ -1,3 +1,5 @@
+#![allow(clippy::large_enum_variant)]
+
 use axum::{
     body::Body,
     extract::{Extension, Query},
@@ -6,8 +8,13 @@ use axum::{
 };
 use chrono::{DateTime, Utc};
 use chronoutil::DateRule;
+use headers::{HeaderMap, HeaderValue};
 use hyper::{Response, StatusCode};
-use podreplay_lib::{diff_feed, feed::create_cached_entry_map, replay_feed, Feed, ParseFeedError};
+use lazy_static::lazy_static;
+use podreplay_lib::{
+    diff_feed, feed::create_cached_entry_map, replay_feed, Feed, ParseFeedError, ReplayedItem,
+};
+use regex::Regex;
 use serde::Deserialize;
 use thiserror::Error;
 
@@ -20,30 +27,60 @@ pub struct SummaryQuery {
     now: Option<DateTime<Utc>>,
 }
 
+lazy_static! {
+    static ref ETAG_RE: Regex = Regex::new(r#"^(?:W/)?"?([^"]+)"?$"#).unwrap();
+}
+
+fn parse_rfc3339(dt: &str) -> Result<DateTime<Utc>, chrono::ParseError> {
+    Ok(DateTime::parse_from_rfc3339(dt)?.into())
+}
+
+fn parse_etag(inm: &str) -> Option<&str> {
+    let cap = ETAG_RE.captures(inm)?;
+    cap.get(1).map(|g| g.as_str())
+}
+
 pub async fn get<'a>(
     query: Query<SummaryQuery>,
+    headers: HeaderMap,
     Extension(db): Extension<Db>,
-) -> Result<Json<Vec<podreplay_lib::ReplayedItem>>, ReplayError> {
+) -> Result<ReplayResponse, ReplayError> {
     // TODO: Do we always want to leave this overriding in place? Should we
     // consider not using it to (for example) update the DB to avoid breaking
     // the integrity of something?
     let now = query.now.unwrap_or_else(Utc::now);
 
-    // TODO: use this?
-    // let feed_meta = db.get_feed_meta(&query.uri).await?;
+    let if_none_match = headers
+        .get("if-none-match")
+        .and_then(|inm| inm.to_str().ok());
 
-    // TODO: break etag (if it exists) into [feed etag] and [next scheduled]
-    // parts. I need to think about it a bit more, but we may be able to
-    // immediately return a 304 if we haven't hit the next scheduled timestamp.
-    // If that's not safe, we should be able to at least check the upstream
-    // podcast's etag and potentially still send a 304. Note that if we do use
-    // the feed's etag, we'll still need to be aware of whether we're likely to
-    // need to add another episode. It doesn't do us much good if we get back a
-    // 304 but need the feed to generate a new version with the latest scheduled
-    // episode.
+    let split_inm = if_none_match
+        .and_then(parse_etag)
+        .map(|cap| match cap.split_once('|') {
+            Some((expires, etag)) => (parse_rfc3339(expires).ok(), etag),
+            None => (None, cap),
+        });
+    let inm_feed_etag = split_inm.map(|inm| inm.1);
+    let inm_expires = split_inm.and_then(|inm| inm.0);
 
-    let (feed, fetched_etag) = fetch_feed(&query.uri).await?;
-    let feed_meta = db.update_feed_meta(&query.uri, &now, fetched_etag).await?;
+    if let Some(expires) = inm_expires {
+        if now < expires {
+            return Ok(ReplayResponse::NotModified);
+        }
+    }
+
+    let fetched = fetch_feed(
+        &query.uri,
+        inm_feed_etag.map(|etag| format!(r#""{}""#, etag)),
+    )
+    .await?;
+
+    let (feed, fetched_etag) = match fetched {
+        FeedResponse::NotModified => return Ok(ReplayResponse::NotModified),
+        FeedResponse::Fetched(feed, fetched_etag) => (feed, fetched_etag),
+    };
+
+    let feed_meta = db.update_feed_meta(&query.uri, &now, &fetched_etag).await?;
 
     let cached_entries = db.get_entries(feed_meta.id).await?;
     let cached_entry_map = create_cached_entry_map(&cached_entries);
@@ -53,40 +90,86 @@ pub async fn get<'a>(
     let entries = if changes.is_empty() {
         cached_entries
     } else {
-        // TODO: IF this is a new feed, consider defaulting "noticed" to the
-        // published date or replaying can get weird. In theory this shouldn't
-        // matter since by definition anyone who starts a replay will only be
-        // moving forward. If we give the ability to pick a "podcast start",
-        // that shouldn't affect anything either.
         db.update_cached_entries(feed_meta.id, &changes).await?
     };
 
     let rule = DateRule::weekly(query.start);
 
-    let replayed = replay_feed(&entries, rule, query.start, now, feed_meta.first_fetched);
+    let (replayed, next_slot) =
+        replay_feed(&entries, rule, query.start, now, feed_meta.first_fetched);
+
+    // TODO: forward on any other safe/relevant feed caching related headers?
+    let mut headers = HeaderMap::new();
+    if let Some(expires) = next_slot.map(|dt| dt.to_rfc2822()) {
+        headers.insert("Expires", HeaderValue::from_str(&expires).unwrap());
+    }
+    if let Some(feed_etag) = fetched_etag.and_then(|e| Some(parse_etag(&e)?.to_string())) {
+        let etag = format!(r#""{}|{}""#, next_slot.unwrap().to_rfc3339(), feed_etag);
+        headers.insert("Etag", HeaderValue::from_str(&etag).unwrap());
+    }
 
     // TODO: use replayed and the fetched feed to build a final feed
-    Ok(Json(replayed))
+    Ok(ReplayResponse::Replay {
+        feed,
+        schedule: replayed,
+        headers,
+    })
 }
 
-async fn fetch_feed(uri: &str) -> Result<(Feed, Option<String>), ReplayError> {
+enum FeedResponse {
+    NotModified,
+    Fetched(Feed, Option<String>),
+}
+
+async fn fetch_feed(uri: &str, etag: Option<String>) -> Result<FeedResponse, ReplayError> {
     let client = reqwest::Client::builder().build()?;
-    let resp = client
-        .get(uri)
-        .header("User-Agent", "podreplay/0.1")
-        .send()
-        .await?;
+    let req = client.get(uri).header("User-Agent", "podreplay/0.1");
+    let req = if let Some(etag) = etag {
+        req.header("If-None-Match", etag)
+    } else {
+        req
+    };
+    let resp = req.send().await?;
+
+    if resp.status() == StatusCode::NOT_MODIFIED {
+        return Ok(FeedResponse::NotModified);
+    }
 
     let etag = resp
         .headers()
         .get("etag")
-        .and_then(|e| e.to_str().ok())
-        .map(|e| e.to_string());
+        .and_then(|etag| etag.to_str().ok())
+        .map(|etag| etag.to_string());
 
     let body = resp.bytes().await?;
     let feed = Feed::from_source(&body, Some(uri))?;
 
-    Ok((feed, etag))
+    Ok(FeedResponse::Fetched(feed, etag))
+}
+
+pub enum ReplayResponse {
+    NotModified,
+    Replay {
+        headers: HeaderMap,
+        feed: Feed,
+        schedule: Vec<ReplayedItem>,
+    },
+}
+
+impl IntoResponse for ReplayResponse {
+    type Body = axum::body::Full<axum::body::Bytes>;
+    type BodyError = <Self::Body as axum::body::HttpBody>::Error;
+
+    fn into_response(self) -> Response<Self::Body> {
+        match self {
+            ReplayResponse::NotModified => (StatusCode::NOT_MODIFIED, Json("")).into_response(),
+            ReplayResponse::Replay {
+                headers,
+                feed,
+                schedule,
+            } => (headers, Json(schedule)).into_response(),
+        }
+    }
 }
 
 #[derive(Error, Debug)]

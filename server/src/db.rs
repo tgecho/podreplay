@@ -20,17 +20,11 @@ impl Db {
             .map(|o| o.unwrap())
     }
 
-    pub async fn get_feed_meta(&self, feed_uri: &str) -> Result<Option<FeedMeta>, sqlx::Error> {
-        sqlx::query_as!(FeedMeta, "SELECT * FROM feeds WHERE uri = ?", feed_uri)
-            .fetch_optional(&self.pool)
-            .await
-    }
-
     pub async fn update_feed_meta(
         &self,
         uri: &str,
         timestamp: &DateTime<Utc>,
-        etag: Option<String>,
+        etag: &Option<String>,
     ) -> Result<FeedMeta, sqlx::Error> {
         let id = sqlx::query_scalar!(
             r#"

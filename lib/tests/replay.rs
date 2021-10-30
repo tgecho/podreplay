@@ -25,7 +25,7 @@ fn empty_feed() {
         parse_dt("2014-12-28T21:00:00"),
         parse_dt("2014-12-28T21:00:00"),
     );
-    assert_eq!(result, vec![]);
+    assert_eq!(result, (vec![], None));
 }
 
 #[test]
@@ -38,7 +38,10 @@ fn one_item() {
         parse_dt("2014-12-28T21:00:00"),
         parse_dt("2014-12-28T21:00:00"),
     );
-    assert_eq!(result, replayed_items(vec![("1", "2014-11-28T21:00:00")]));
+    assert_eq!(
+        result,
+        (replayed_items(vec![("1", "2014-11-28T21:00:00")]), None)
+    );
 }
 
 #[test]
@@ -59,10 +62,13 @@ fn two_items() {
     );
     assert_eq!(
         result,
-        replayed_items(vec![
-            ("1", "2014-11-28T21:00:00"),
-            ("2", "2014-11-29T21:00:00")
-        ])
+        (
+            replayed_items(vec![
+                ("1", "2014-11-28T21:00:00"),
+                ("2", "2014-11-29T21:00:00")
+            ]),
+            None
+        )
     );
 }
 
@@ -72,7 +78,7 @@ fn stops_repeating_at_end() {
         1,
         vec![
             ("1", "2013-11-28T21:00:00", "pub"),
-            ("2", "2013-12-28T21:00:00", "pub"),
+            ("2", "2013-12-04T21:00:00", "pub"),
         ],
     );
     let result = replay_feed(
@@ -82,7 +88,13 @@ fn stops_repeating_at_end() {
         parse_dt("2014-11-28T22:00:00"),
         parse_dt("2014-11-28T22:00:00"),
     );
-    assert_eq!(result, replayed_items(vec![("1", "2014-11-28T21:00:00")]));
+    assert_eq!(
+        result,
+        (
+            replayed_items(vec![("1", "2014-11-28T21:00:00")]),
+            Some(parse_dt("2014-12-05T21:00:00"))
+        )
+    );
 }
 
 #[test]
@@ -105,11 +117,14 @@ fn resumes_original_schedule_once_caught_up() {
     );
     assert_eq!(
         result,
-        replayed_items(vec![
-            ("1", "2014-11-03T20:00:00"),
-            ("2", "2014-11-04T21:00:00"),
-            ("3", "2014-11-09T22:00:00"),
-        ])
+        (
+            replayed_items(vec![
+                ("1", "2014-11-03T20:00:00"),
+                ("2", "2014-11-04T21:00:00"),
+                ("3", "2014-11-09T22:00:00"),
+            ]),
+            None
+        )
     );
 }
 
@@ -129,7 +144,10 @@ fn does_not_duplicate_a_rescheduled_item_that_already_played() {
         parse_dt("2014-11-12T22:00:00"),
         parse_dt("2014-11-12T22:00:00"),
     );
-    assert_eq!(result, replayed_items(vec![("1", "2014-11-03T20:00:00"),]));
+    assert_eq!(
+        result,
+        (replayed_items(vec![("1", "2014-11-03T20:00:00"),]), None)
+    );
 }
 
 #[test]
@@ -151,10 +169,13 @@ fn does_not_schedule_a_replay_if_a_reschedule_is_noticed_before_slot() {
     );
     assert_eq!(
         result,
-        replayed_items(vec![
-            ("2", "2014-11-06T20:00:00"),
-            ("1", "2014-11-07T20:00:00"),
-        ])
+        (
+            replayed_items(vec![
+                ("2", "2014-11-06T20:00:00"),
+                ("1", "2014-11-07T20:00:00"),
+            ]),
+            None
+        )
     );
 }
 
@@ -177,10 +198,13 @@ fn moved_forward_noticed_after_slot() {
     );
     assert_eq!(
         result,
-        replayed_items(vec![
-            ("1", "2014-11-03T20:00:00"),
-            ("2", "2014-11-04T20:00:00"),
-        ])
+        (
+            replayed_items(vec![
+                ("1", "2014-11-03T20:00:00"),
+                ("2", "2014-11-04T20:00:00"),
+            ]),
+            None
+        )
     );
 }
 
@@ -203,10 +227,13 @@ fn moved_forward_noticed_before_slot() {
     );
     assert_eq!(
         result,
-        replayed_items(vec![
-            ("2", "2014-11-06T20:00:00"),
-            ("1", "2014-11-07T20:00:00"),
-        ])
+        (
+            replayed_items(vec![
+                ("2", "2014-11-06T20:00:00"),
+                ("1", "2014-11-07T20:00:00"),
+            ]),
+            None
+        )
     );
 }
 
@@ -229,10 +256,13 @@ fn moved_backward_noticed_before_slot() {
     );
     assert_eq!(
         result,
-        replayed_items(vec![
-            ("1", "2014-11-09T20:00:00"),
-            ("2", "2014-11-10T20:00:00"),
-        ])
+        (
+            replayed_items(vec![
+                ("1", "2014-11-09T20:00:00"),
+                ("2", "2014-11-10T20:00:00"),
+            ]),
+            None
+        )
     );
 }
 
@@ -255,10 +285,13 @@ fn moved_backward_noticed_after_slot() {
     );
     assert_eq!(
         result,
-        replayed_items(vec![
-            ("2", "2014-11-06T10:00:00"),
-            ("1", "2014-11-07T10:00:00"),
-        ])
+        (
+            replayed_items(vec![
+                ("2", "2014-11-06T10:00:00"),
+                ("1", "2014-11-07T10:00:00"),
+            ]),
+            None
+        )
     );
 }
 
@@ -280,10 +313,13 @@ fn published_retroactively_noticed_before_slot() {
     );
     assert_eq!(
         result,
-        replayed_items(vec![
-            ("1", "2014-11-06T10:00:00"),
-            ("2", "2014-11-07T10:00:00"),
-        ])
+        (
+            replayed_items(vec![
+                ("1", "2014-11-06T10:00:00"),
+                ("2", "2014-11-07T10:00:00"),
+            ]),
+            None
+        )
     );
 }
 
@@ -305,10 +341,13 @@ fn published_retroactively_noticed_after_slot() {
     );
     assert_eq!(
         result,
-        replayed_items(vec![
-            ("2", "2014-11-10T20:00:00"),
-            ("1", "2014-11-11T20:00:00"),
-        ])
+        (
+            replayed_items(vec![
+                ("2", "2014-11-10T20:00:00"),
+                ("1", "2014-11-11T20:00:00"),
+            ]),
+            None
+        )
     );
 }
 
@@ -334,13 +373,16 @@ fn published_retroactively_noticed_after_slot_and_missed_a_slot() {
     );
     assert_eq!(
         result,
-        replayed_items(vec![
-            ("2", "2014-11-10T10:00:00"),
-            // Because the publish wasn't noticed before the slot on the
-            // 11th, it doesn't get replayed until the next available slot
-            // on the 12th
-            ("1", "2014-11-12T10:00:00"),
-        ])
+        (
+            replayed_items(vec![
+                ("2", "2014-11-10T10:00:00"),
+                // Because the publish wasn't noticed before the slot on the
+                // 11th, it doesn't get replayed until the next available slot
+                // on the 12th
+                ("1", "2014-11-12T10:00:00"),
+            ]),
+            None
+        )
     );
 }
 
@@ -363,12 +405,15 @@ fn unpublish_noticed_after_slot() {
     );
     assert_eq!(
         result,
-        replayed_items(vec![
-            // We didn't notice the unpublish before the slot was filled, so it
-            // was replayed briefly, but we need to keep the slot open to avoid
-            // shifting anything else around.
-            ("2", "2014-11-11T10:00:00"),
-        ])
+        (
+            replayed_items(vec![
+                // We didn't notice the unpublish before the slot was filled, so it
+                // was replayed briefly, but we need to keep the slot open to avoid
+                // shifting anything else around.
+                ("2", "2014-11-11T10:00:00"),
+            ]),
+            None
+        )
     );
 }
 
@@ -391,11 +436,14 @@ fn unpublish_noticed_before_slot() {
     );
     assert_eq!(
         result,
-        replayed_items(vec![
-            // We noticed the unpublish before we got to the slot, so we
-            // publish the next available episode in that slot
-            ("2", "2014-11-12T10:00:00"),
-        ])
+        (
+            replayed_items(vec![
+                // We noticed the unpublish before we got to the slot, so we
+                // publish the next available episode in that slot
+                ("2", "2014-11-12T10:00:00"),
+            ]),
+            None
+        )
     );
 }
 
@@ -418,10 +466,13 @@ fn items_in_a_retroactively_subscribed_feed_appear_properly() {
     );
     assert_eq!(
         result,
-        replayed_items(vec![
-            ("1", "2014-11-04T10:00:00"),
-            ("2", "2014-11-05T10:00:00"),
-            ("3", "2014-11-06T21:00:00"),
-        ])
+        (
+            replayed_items(vec![
+                ("1", "2014-11-04T10:00:00"),
+                ("2", "2014-11-05T10:00:00"),
+                ("3", "2014-11-06T21:00:00"),
+            ]),
+            None
+        )
     );
 }

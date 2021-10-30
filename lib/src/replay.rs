@@ -16,7 +16,7 @@ pub fn replay_feed(
     start: DateTime<Utc>,
     now: DateTime<Utc>,
     feed_noticed: DateTime<Utc>,
-) -> Vec<ReplayedItem> {
+) -> (Vec<ReplayedItem>, Option<DateTime<Utc>>) {
     let mut published_before_cutoff = items
         .iter()
         .filter(|item| item.published.map_or(false, |p| p <= now));
@@ -24,7 +24,10 @@ pub fn replay_feed(
     let mut delayed = DelayedItems::new();
     let mut results = Vec::new();
 
-    for slot in rule.with_end(now) {
+    for slot in rule {
+        if slot >= now {
+            return (results, Some(slot));
+        }
         let some_slot = Some(slot);
         loop {
             let next_item = delayed
@@ -70,13 +73,13 @@ pub fn replay_feed(
                     }
                 }
             } else if delayed.is_empty() {
-                return results; // ran out of items, don't loop over the rest of the slots
+                return (results, None); // ran out of items, don't loop over the rest of the slots
             } else {
                 break; // no eligible items available for this slot, try the next
             }
         }
     }
-    results
+    (results, None)
 }
 
 fn create_instances_by_id(items: &[CachedEntry]) -> HashMap<&String, Scheduled> {
