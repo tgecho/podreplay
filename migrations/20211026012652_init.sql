@@ -15,3 +15,4 @@ CREATE TABLE entries (
     UNIQUE(id, published),
     FOREIGN KEY (feed_id) REFERENCES feeds (id) ON DELETE RESTRICT ON UPDATE CASCADE
 );
+CREATE INDEX entries_feed_id on entries (feed_id);
