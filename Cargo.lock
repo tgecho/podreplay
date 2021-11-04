@@ -1373,6 +1373,7 @@ dependencies = [
 [[package]]
 name = "sqlx"
 version = "0.5.9"
+source = "git+https://github.com/tgecho/sqlx?branch=sqlite-datetime-utc#54d9eeca2e80f9a87bbef52af183550ce7ab3bc0"
 dependencies = [
  "sqlx-core",
  "sqlx-macros",
@@ -1381,6 +1382,7 @@ dependencies = [
 [[package]]
 name = "sqlx-core"
 version = "0.5.9"
+source = "git+https://github.com/tgecho/sqlx?branch=sqlite-datetime-utc#54d9eeca2e80f9a87bbef52af183550ce7ab3bc0"
 dependencies = [
  "ahash",
  "atoi",
@@ -1425,6 +1427,7 @@ dependencies = [
 [[package]]
 name = "sqlx-macros"
 version = "0.5.9"
+source = "git+https://github.com/tgecho/sqlx?branch=sqlite-datetime-utc#54d9eeca2e80f9a87bbef52af183550ce7ab3bc0"
 dependencies = [
  "dotenv",
  "either",
@@ -1442,6 +1445,7 @@ dependencies = [
 [[package]]
 name = "sqlx-rt"
 version = "0.5.9"
+source = "git+https://github.com/tgecho/sqlx?branch=sqlite-datetime-utc#54d9eeca2e80f9a87bbef52af183550ce7ab3bc0"
 dependencies = [
  "once_cell",
  "tokio",
