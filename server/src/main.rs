@@ -2,7 +2,7 @@ mod db;
 mod replay;
 mod summary;
 
-use axum::{handler::get, AddExtensionLayer, Router, Server};
+use axum::{routing::get, AddExtensionLayer, Router, Server};
 use db::Db;
 
 #[tokio::main]

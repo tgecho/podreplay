@@ -14,7 +14,7 @@ tracing-subscriber = "0.3.0"
 serde = {version = "1.0.130", features=["derive"]}
 chrono = { version = "0.4.19", features = ["serde"] }
 reqwest = "0.11.6"
-axum = {version = "0.2.8", features=["headers"]}
+axum = {version = "0.3.0", features=["headers"]}
 thiserror = "1.0.30"
 chronoutil = "0.2.3"
 sqlx = {git = "https://github.com/tgecho/sqlx", branch = "sqlite-datetime-utc", features=["sqlite", "chrono", "macros", "migrate", "runtime-tokio-rustls"]}
