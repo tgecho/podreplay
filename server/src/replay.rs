@@ -1,7 +1,7 @@
 #![allow(clippy::large_enum_variant)]
 
 use axum::{
-    body::Body,
+    body::{box_body, Body, BoxBody, HttpBody},
     extract::{Extension, Query},
     response::IntoResponse,
     Json,
@@ -157,17 +157,17 @@ pub enum ReplayResponse {
 }
 
 impl IntoResponse for ReplayResponse {
-    type Body = axum::body::Full<axum::body::Bytes>;
-    type BodyError = <Self::Body as axum::body::HttpBody>::Error;
+    type Body = BoxBody;
+    type BodyError = <Self::Body as HttpBody>::Error;
 
     fn into_response(self) -> Response<Self::Body> {
         match self {
-            ReplayResponse::NotModified => (StatusCode::NOT_MODIFIED, Json("")).into_response(),
+            ReplayResponse::NotModified => StatusCode::NOT_MODIFIED.into_response().map(box_body),
             ReplayResponse::Replay {
                 headers,
                 feed,
                 schedule,
-            } => (headers, Json(schedule)).into_response(),
+            } => (headers, Json(schedule)).into_response().map(box_body),
         }
     }
 }
@@ -184,7 +184,7 @@ pub enum ReplayError {
 
 impl IntoResponse for ReplayError {
     type Body = Body;
-    type BodyError = <Self::Body as axum::body::HttpBody>::Error;
+    type BodyError = <Self::Body as HttpBody>::Error;
 
     fn into_response(self) -> Response<Self::Body> {
         let body = match self {
