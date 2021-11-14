@@ -53,20 +53,9 @@ pub async fn get<'a>(
     #[cfg(not(test))]
     let now = Utc::now();
 
-    let if_none_match = headers
-        .get("if-none-match")
-        .and_then(|inm| inm.to_str().ok());
+    let (feed_request_etag, request_expires) = parse_request_etag(headers.get("if-none-match"));
 
-    let split_inm = if_none_match
-        .and_then(parse_etag)
-        .map(|cap| match cap.split_once('|') {
-            Some((expires, etag)) => (parse_rfc3339(expires).ok(), etag),
-            None => (None, cap),
-        });
-    let inm_feed_etag = split_inm.map(|inm| inm.1);
-    let inm_expires = split_inm.and_then(|inm| inm.0);
-
-    if let Some(expires) = inm_expires {
+    if let Some(expires) = request_expires {
         if now < expires {
             return Ok(ReplayResponse::NotModified);
         }
@@ -75,7 +64,7 @@ pub async fn get<'a>(
     let fetched = http
         .get_feed(
             &query.uri,
-            inm_feed_etag.map(|etag| format!(r#""{}""#, etag)),
+            feed_request_etag.map(|etag| format!(r#""{}""#, etag)),
         )
         .await?;
 
@@ -118,6 +107,19 @@ pub async fn get<'a>(
         schedule: replayed,
         headers,
     })
+}
+
+fn parse_request_etag(inm: Option<&HeaderValue>) -> (Option<&str>, Option<DateTime<Utc>>) {
+    let if_none_match = inm.and_then(|inm| inm.to_str().ok());
+    let split_inm = if_none_match
+        .and_then(parse_etag)
+        .map(|cap| match cap.split_once('|') {
+            Some((expires, etag)) => (parse_rfc3339(expires).ok(), etag),
+            None => (None, cap),
+        });
+    let feed_request_etag = split_inm.map(|inm| inm.1);
+    let request_expires = split_inm.and_then(|inm| inm.0);
+    (feed_request_etag, request_expires)
 }
 
 pub enum ReplayResponse {
