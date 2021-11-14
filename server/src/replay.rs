@@ -25,7 +25,8 @@ use crate::{
 pub struct SummaryQuery {
     start: DateTime<Utc>,
     uri: String,
-    now: Option<DateTime<Utc>>,
+    #[cfg(test)]
+    now: DateTime<Utc>,
 }
 
 lazy_static! {
@@ -47,10 +48,10 @@ pub async fn get<'a>(
     Extension(db): Extension<Db>,
     Extension(http): Extension<HttpClient>,
 ) -> Result<ReplayResponse, ReplayError> {
-    // TODO: Do we always want to leave this overriding in place? Should we
-    // consider not using it to (for example) update the DB to avoid breaking
-    // the integrity of something?
-    let now = query.now.unwrap_or_else(Utc::now);
+    #[cfg(test)]
+    let now = query.now;
+    #[cfg(not(test))]
+    let now = Utc::now();
 
     let if_none_match = headers
         .get("if-none-match")
