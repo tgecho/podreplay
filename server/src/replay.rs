@@ -11,14 +11,15 @@ use chronoutil::DateRule;
 use headers::{HeaderMap, HeaderValue};
 use hyper::{Response, StatusCode};
 use lazy_static::lazy_static;
-use podreplay_lib::{
-    diff_feed, feed::create_cached_entry_map, replay_feed, Feed, ParseFeedError, ReplayedItem,
-};
+use podreplay_lib::{diff_feed, feed::create_cached_entry_map, replay_feed, Feed, ReplayedItem};
 use regex::Regex;
 use serde::Deserialize;
 use thiserror::Error;
 
-use crate::db::Db;
+use crate::{
+    db::Db,
+    fetch::{FetchError, FetchResponse, HttpClient},
+};
 
 #[derive(Deserialize, Debug)]
 pub struct SummaryQuery {
@@ -44,6 +45,7 @@ pub async fn get<'a>(
     query: Query<SummaryQuery>,
     headers: HeaderMap,
     Extension(db): Extension<Db>,
+    Extension(http): Extension<HttpClient>,
 ) -> Result<ReplayResponse, ReplayError> {
     // TODO: Do we always want to leave this overriding in place? Should we
     // consider not using it to (for example) update the DB to avoid breaking
@@ -69,15 +71,16 @@ pub async fn get<'a>(
         }
     }
 
-    let fetched = fetch_feed(
-        &query.uri,
-        inm_feed_etag.map(|etag| format!(r#""{}""#, etag)),
-    )
-    .await?;
+    let fetched = http
+        .get_feed(
+            &query.uri,
+            inm_feed_etag.map(|etag| format!(r#""{}""#, etag)),
+        )
+        .await?;
 
     let (feed, fetched_etag) = match fetched {
-        FeedResponse::NotModified => return Ok(ReplayResponse::NotModified),
-        FeedResponse::Fetched(feed, fetched_etag) => (feed, fetched_etag),
+        FetchResponse::NotModified => return Ok(ReplayResponse::NotModified),
+        FetchResponse::Fetched(feed, fetched_etag) => (feed, fetched_etag),
     };
 
     let feed_meta = db.update_feed_meta(&query.uri, &now, &fetched_etag).await?;
@@ -116,37 +119,6 @@ pub async fn get<'a>(
     })
 }
 
-enum FeedResponse {
-    NotModified,
-    Fetched(Feed, Option<String>),
-}
-
-async fn fetch_feed(uri: &str, etag: Option<String>) -> Result<FeedResponse, ReplayError> {
-    let client = reqwest::Client::builder().build()?;
-    let req = client.get(uri).header("User-Agent", "podreplay/0.1");
-    let req = if let Some(etag) = etag {
-        req.header("If-None-Match", etag)
-    } else {
-        req
-    };
-    let resp = req.send().await?;
-
-    if resp.status() == StatusCode::NOT_MODIFIED {
-        return Ok(FeedResponse::NotModified);
-    }
-
-    let etag = resp
-        .headers()
-        .get("etag")
-        .and_then(|etag| etag.to_str().ok())
-        .map(|etag| etag.to_string());
-
-    let body = resp.bytes().await?;
-    let feed = Feed::from_source(&body, Some(uri))?;
-
-    Ok(FeedResponse::Fetched(feed, etag))
-}
-
 pub enum ReplayResponse {
     NotModified,
     Replay {
@@ -175,9 +147,7 @@ impl IntoResponse for ReplayResponse {
 #[derive(Error, Debug)]
 pub enum ReplayError {
     #[error("failed to fetch feed")]
-    FetchFeedFailed(#[from] reqwest::Error),
-    #[error("failed to parse feed")]
-    ParseFeedFailed(#[from] ParseFeedError),
+    FetchError(#[from] FetchError),
     #[error("database request failed")]
     DatabaseError(#[from] sqlx::Error),
 }
@@ -188,8 +158,7 @@ impl IntoResponse for ReplayError {
 
     fn into_response(self) -> Response<Self::Body> {
         let body = match self {
-            ReplayError::FetchFeedFailed(err) => Body::from(err.to_string()),
-            ReplayError::ParseFeedFailed(err) => Body::from(err.to_string()),
+            ReplayError::FetchError(err) => Body::from(err.to_string()),
             ReplayError::DatabaseError(err) => Body::from(err.to_string()),
         };
 
