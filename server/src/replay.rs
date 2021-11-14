@@ -29,19 +29,6 @@ pub struct SummaryQuery {
     now: DateTime<Utc>,
 }
 
-lazy_static! {
-    static ref ETAG_RE: Regex = Regex::new(r#"^(?:W/)?"?([^"]+)"?$"#).unwrap();
-}
-
-fn parse_rfc3339(dt: &str) -> Result<DateTime<Utc>, chrono::ParseError> {
-    Ok(DateTime::parse_from_rfc3339(dt)?.into())
-}
-
-fn parse_etag(inm: &str) -> Option<&str> {
-    let cap = ETAG_RE.captures(inm)?;
-    cap.get(1).map(|g| g.as_str())
-}
-
 pub async fn get<'a>(
     query: Query<SummaryQuery>,
     headers: HeaderMap,
@@ -91,28 +78,46 @@ pub async fn get<'a>(
     let (replayed, next_slot) =
         replay_feed(&entries, rule, query.start, now, feed_meta.first_fetched);
 
-    // TODO: forward on any other safe/relevant feed caching related headers?
-    let mut headers = HeaderMap::new();
-    if let Some(expires) = next_slot.map(|dt| dt.to_rfc2822()) {
-        headers.insert("Expires", HeaderValue::from_str(&expires).unwrap());
-    }
-    if let Some(feed_etag) = fetched_etag.and_then(|e| Some(parse_etag(&e)?.to_string())) {
-        let etag = format!(r#""{}|{}""#, next_slot.unwrap().to_rfc3339(), feed_etag);
-        headers.insert("Etag", HeaderValue::from_str(&etag).unwrap());
-    }
+    let headers = prepare_headers(next_slot, fetched_etag);
 
     // TODO: use replayed and the fetched feed to build a final feed
-    Ok(ReplayResponse::Replay {
+    Ok(ReplayResponse::Success {
         feed,
         schedule: replayed,
         headers,
     })
 }
 
+fn prepare_headers(next_slot: Option<DateTime<Utc>>, fetched_etag: Option<String>) -> HeaderMap {
+    // TODO: forward on any other safe/relevant feed caching related headers?
+    let mut headers = HeaderMap::new();
+    if let Some(expires) = next_slot.map(|dt| dt.to_rfc2822()) {
+        headers.insert("Expires", HeaderValue::from_str(&expires).unwrap());
+    }
+    if let Some(feed_etag) = fetched_etag.and_then(|e| Some(parse_etag_value(&e)?.to_string())) {
+        let etag = format!(r#""{}|{}""#, next_slot.unwrap().to_rfc3339(), feed_etag);
+        headers.insert("Etag", HeaderValue::from_str(&etag).unwrap());
+    }
+    headers
+}
+
+lazy_static! {
+    static ref ETAG_RE: Regex = Regex::new(r#"^(?:W/)?"?([^"]+)"?$"#).unwrap();
+}
+
+fn parse_rfc3339(dt: &str) -> Result<DateTime<Utc>, chrono::ParseError> {
+    Ok(DateTime::parse_from_rfc3339(dt)?.into())
+}
+
+fn parse_etag_value(inm: &str) -> Option<&str> {
+    let cap = ETAG_RE.captures(inm)?;
+    cap.get(1).map(|g| g.as_str())
+}
+
 fn parse_request_etag(inm: Option<&HeaderValue>) -> (Option<&str>, Option<DateTime<Utc>>) {
     let if_none_match = inm.and_then(|inm| inm.to_str().ok());
     let split_inm = if_none_match
-        .and_then(parse_etag)
+        .and_then(parse_etag_value)
         .map(|cap| match cap.split_once('|') {
             Some((expires, etag)) => (parse_rfc3339(expires).ok(), etag),
             None => (None, cap),
@@ -124,7 +129,7 @@ fn parse_request_etag(inm: Option<&HeaderValue>) -> (Option<&str>, Option<DateTi
 
 pub enum ReplayResponse {
     NotModified,
-    Replay {
+    Success {
         headers: HeaderMap,
         feed: Feed,
         schedule: Vec<ReplayedItem>,
@@ -138,7 +143,7 @@ impl IntoResponse for ReplayResponse {
     fn into_response(self) -> Response<Self::Body> {
         match self {
             ReplayResponse::NotModified => StatusCode::NOT_MODIFIED.into_response().map(box_body),
-            ReplayResponse::Replay {
+            ReplayResponse::Success {
                 headers,
                 feed,
                 schedule,
