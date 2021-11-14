@@ -60,18 +60,8 @@ pub async fn get<'a>(
         FetchResponse::Fetched(feed, fetched_etag) => (feed, fetched_etag),
     };
 
-    let feed_meta = db.update_feed_meta(&query.uri, &now, &fetched_etag).await?;
-
-    let cached_entries = db.get_entries(feed_meta.id).await?;
-    let cached_entry_map = create_cached_entry_map(&cached_entries);
-
-    let changes = diff_feed(&feed.id_map(), &cached_entry_map, feed_meta.id, now);
-
-    let entries = if changes.is_empty() {
-        cached_entries
-    } else {
-        db.update_cached_entries(feed_meta.id, &changes).await?
-    };
+    let (feed_meta, entries) =
+        get_updated_caches(db, &query.uri, now, &fetched_etag, &feed).await?;
 
     let rule = DateRule::weekly(query.start);
 
@@ -86,6 +76,28 @@ pub async fn get<'a>(
         schedule: replayed,
         headers,
     })
+}
+
+async fn get_updated_caches(
+    db: Db,
+    uri: &str,
+    now: DateTime<Utc>,
+    fetched_etag: &Option<String>,
+    feed: &Feed,
+) -> Result<(podreplay_lib::FeedMeta, Vec<podreplay_lib::CachedEntry>), ReplayError> {
+    let feed_meta = db.update_feed_meta(uri, &now, fetched_etag).await?;
+
+    let cached_entries = db.get_entries(feed_meta.id).await?;
+    let cached_entry_map = create_cached_entry_map(&cached_entries);
+
+    let changes = diff_feed(&feed.id_map(), &cached_entry_map, feed_meta.id, now);
+    let entries = if changes.is_empty() {
+        cached_entries
+    } else {
+        db.update_cached_entries(feed_meta.id, &changes).await?
+    };
+
+    Ok((feed_meta, entries))
 }
 
 fn prepare_headers(next_slot: Option<DateTime<Utc>>, fetched_etag: Option<String>) -> HeaderMap {
