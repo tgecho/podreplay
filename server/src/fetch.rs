@@ -2,11 +2,19 @@
 
 use hyper::StatusCode;
 use podreplay_lib::{Feed, ParseFeedError};
+use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
+use reqwest_tracing::TracingMiddleware;
 use thiserror::Error;
 
 #[derive(Clone)]
 pub struct HttpClient {
-    client: reqwest::Client,
+    client: ClientWithMiddleware,
+}
+
+impl std::fmt::Debug for HttpClient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HttpClient").finish()
+    }
 }
 
 pub enum FetchResponse {
@@ -17,17 +25,28 @@ pub enum FetchResponse {
 #[derive(Error, Debug)]
 pub enum FetchError {
     #[error("failed to fetch feed")]
-    FetchFeedFailed(#[from] reqwest::Error),
+    Request(#[from] reqwest_middleware::Error),
+    #[error("failed to read feed body")]
+    Read(#[from] reqwest::Error),
     #[error("failed to parse feed")]
-    ParseFeedFailed(#[from] ParseFeedError),
+    Parse(#[from] ParseFeedError),
+}
+
+impl Default for HttpClient {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl HttpClient {
-    pub fn new() -> reqwest::Result<Self> {
-        let client = reqwest::Client::builder().build()?;
-        Ok(HttpClient { client })
+    pub fn new() -> Self {
+        let client = ClientBuilder::new(reqwest::Client::new())
+            .with(TracingMiddleware)
+            .build();
+        HttpClient { client }
     }
 
+    #[tracing::instrument(level = "debug")]
     pub async fn get_feed(
         &self,
         uri: &str,
@@ -52,6 +71,7 @@ impl HttpClient {
             .map(|etag| etag.to_string());
 
         let body = resp.bytes().await?;
+
         let feed = Feed::from_source(&body, Some(uri))?;
 
         Ok(FetchResponse::Fetched(feed, etag))

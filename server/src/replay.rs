@@ -1,7 +1,7 @@
 #![allow(clippy::large_enum_variant)]
 
 use axum::{
-    body::{box_body, Body, BoxBody, HttpBody},
+    body::{boxed, Body, BoxBody, HttpBody},
     extract::{Extension, Query},
     response::IntoResponse,
     Json,
@@ -40,11 +40,18 @@ pub async fn get<'a>(
     #[cfg(not(test))]
     let now = Utc::now();
 
-    let (feed_request_etag, request_expires) = parse_request_etag(headers.get("if-none-match"));
-
+    let if_none_match = headers
+        .get("if-none-match")
+        .and_then(|inm| inm.to_str().ok());
+    tracing::debug!("If-None-Match: {:?}", if_none_match);
+    let (feed_request_etag, request_expires) =
+        if_none_match.map_or((None, None), parse_request_etag);
     if let Some(expires) = request_expires {
         if now < expires {
+            tracing::debug!("NotModified ({} < {:?})", now, expires);
             return Ok(ReplayResponse::NotModified);
+        } else {
+            tracing::debug!("NotModified {:?}", request_expires);
         }
     }
 
@@ -56,7 +63,10 @@ pub async fn get<'a>(
         .await?;
 
     let (feed, fetched_etag) = match fetched {
-        FetchResponse::NotModified => return Ok(ReplayResponse::NotModified),
+        FetchResponse::NotModified => {
+            tracing::debug!("NotModified (feed returned 304)");
+            return Ok(ReplayResponse::NotModified);
+        }
         FetchResponse::Fetched(feed, fetched_etag) => (feed, fetched_etag),
     };
 
@@ -103,12 +113,18 @@ async fn get_updated_caches(
 fn prepare_headers(next_slot: Option<DateTime<Utc>>, fetched_etag: Option<String>) -> HeaderMap {
     // TODO: forward on any other safe/relevant feed caching related headers?
     let mut headers = HeaderMap::new();
-    if let Some(expires) = next_slot.map(|dt| dt.to_rfc2822()) {
-        headers.insert("Expires", HeaderValue::from_str(&expires).unwrap());
+    if let Some(expires) = next_slot.and_then(|dt| HeaderValue::from_str(&dt.to_rfc2822()).ok()) {
+        headers.insert("Expires", expires);
     }
-    if let Some(feed_etag) = fetched_etag.and_then(|e| Some(parse_etag_value(&e)?.to_string())) {
-        let etag = format!(r#""{}|{}""#, next_slot.unwrap().to_rfc3339(), feed_etag);
-        headers.insert("Etag", HeaderValue::from_str(&etag).unwrap());
+    if let Some(feed_etag) = fetched_etag.and_then(|e| Some(extract_etag_value(&e)?.to_string())) {
+        let etag = if let Some(next_dt) = next_slot.map(|dt| dt.to_rfc3339()) {
+            format!(r#""{}|{}""#, next_dt, feed_etag)
+        } else {
+            format!(r#""{}""#, feed_etag)
+        };
+        if let Ok(etag) = HeaderValue::from_str(&etag) {
+            headers.insert("Etag", etag);
+        }
     }
     headers
 }
@@ -121,19 +137,28 @@ fn parse_rfc3339(dt: &str) -> Result<DateTime<Utc>, chrono::ParseError> {
     Ok(DateTime::parse_from_rfc3339(dt)?.into())
 }
 
-fn parse_etag_value(inm: &str) -> Option<&str> {
+fn extract_etag_value(inm: &str) -> Option<&str> {
     let cap = ETAG_RE.captures(inm)?;
     cap.get(1).map(|g| g.as_str())
 }
 
-fn parse_request_etag(inm: Option<&HeaderValue>) -> (Option<&str>, Option<DateTime<Utc>>) {
-    let if_none_match = inm.and_then(|inm| inm.to_str().ok());
-    let split_inm = if_none_match
-        .and_then(parse_etag_value)
-        .map(|cap| match cap.split_once('|') {
-            Some((expires, etag)) => (parse_rfc3339(expires).ok(), etag),
-            None => (None, cap),
-        });
+fn parse_request_etag(if_none_match: &str) -> (Option<&str>, Option<DateTime<Utc>>) {
+    let split_inm = extract_etag_value(if_none_match).map(|cap| match cap.split_once('|') {
+        Some((expires, etag)) => {
+            let expires = parse_rfc3339(expires)
+                .map_err(|err| {
+                    tracing::warn!(
+                        "Failed to parse timestamp in If-None-Match: {}; {}",
+                        if_none_match,
+                        err
+                    );
+                    err
+                })
+                .ok();
+            (expires, etag)
+        }
+        None => (None, cap),
+    });
     let feed_request_etag = split_inm.map(|inm| inm.1);
     let request_expires = split_inm.and_then(|inm| inm.0);
     (feed_request_etag, request_expires)
@@ -154,12 +179,12 @@ impl IntoResponse for ReplayResponse {
 
     fn into_response(self) -> Response<Self::Body> {
         match self {
-            ReplayResponse::NotModified => StatusCode::NOT_MODIFIED.into_response().map(box_body),
+            ReplayResponse::NotModified => StatusCode::NOT_MODIFIED.into_response().map(boxed),
             ReplayResponse::Success {
                 headers,
-                feed,
+                feed: _,
                 schedule,
-            } => (headers, Json(schedule)).into_response().map(box_body),
+            } => (headers, Json(schedule)).into_response().map(boxed),
         }
     }
 }
@@ -185,6 +210,50 @@ impl IntoResponse for ReplayError {
         Response::builder()
             .status(StatusCode::INTERNAL_SERVER_ERROR)
             .body(body)
+            .expect("Failed to build error response")
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::{db::Db, fetch::HttpClient, make_app};
+    use axum::{
+        body::{Body, BoxBody},
+        http::Request,
+        Router,
+    };
+    use hyper::Response;
+    use tower::util::ServiceExt;
+    use tracing_test::traced_test;
+
+    async fn get(app: Router, uri: &str) -> Response<BoxBody> {
+        app.oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
+            .await
             .unwrap()
+    }
+
+    #[traced_test]
+    #[tokio::test]
+    async fn hello() {
+        let mock = mockito::mock("GET", "/hellof")
+            .with_body("<xml></xml>")
+            .create();
+        let mock_url = &mockito::server_url();
+
+        let db = Db::new("sqlite://:memory:").await.unwrap();
+        let http = HttpClient::new();
+        let app = make_app(db, http);
+
+        let uri = format!(
+            "/replay?start=2021-10-23T01:09:00Z&now=2021-11-23T01:09:00Z&uri={}/hello",
+            mock_url
+        );
+        let response = get(app, &uri).await;
+        let _status = response.status();
+        let _body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        // assert_eq!(status, StatusCode::OK);
+        mock.assert();
+
+        // let response = super::get(axum::extract::Query());
     }
 }

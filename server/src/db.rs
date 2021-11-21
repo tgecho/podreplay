@@ -1,25 +1,46 @@
+use std::str::FromStr;
+use std::{fmt::Debug, time::Duration};
+
 use chrono::{DateTime, Utc};
 use podreplay_lib::{CachedEntry, FeedMeta};
-use sqlx::SqlitePool;
+use sqlx::{
+    sqlite::{SqliteConnectOptions, SqlitePool},
+    ConnectOptions,
+};
+use tracing::log::LevelFilter;
 
 #[derive(Clone)]
 pub struct Db {
+    uri: &'static str,
     pool: SqlitePool,
 }
 
+impl Debug for Db {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Db").field("uri", &self.uri).finish()
+    }
+}
+
 impl Db {
-    pub async fn new(uri: &str) -> Result<Self, sqlx::Error> {
-        let pool = SqlitePool::connect(uri).await?;
-        Ok(Db { pool })
+    pub async fn new(uri: &'static str) -> Result<Self, sqlx::Error> {
+        let mut options = SqliteConnectOptions::from_str(uri)?;
+        options
+            .log_statements(LevelFilter::Debug)
+            .log_slow_statements(LevelFilter::Warn, Duration::from_millis(10));
+        let pool = SqlitePool::connect_with(options).await?;
+        let db = Db { uri, pool };
+        tracing::info!("sqlite path: {}, version: {}", uri, db.get_version().await?);
+        Ok(db)
     }
 
     pub async fn get_version(&self) -> Result<String, sqlx::Error> {
-        sqlx::query_scalar!("SELECT sqlite_version();")
+        sqlx::query_scalar!("SELECT sqlite_version()")
             .fetch_one(&self.pool)
             .await
-            .map(|o| o.unwrap())
+            .and_then(|o| o.ok_or(sqlx::Error::RowNotFound))
     }
 
+    #[tracing::instrument(level = "debug")]
     pub async fn update_feed_meta(
         &self,
         uri: &str,
@@ -43,12 +64,13 @@ impl Db {
         )
         .fetch_one(&self.pool)
         .await?
-        .unwrap(); // TODO: handle this?
+        .ok_or(sqlx::Error::RowNotFound)?;
         sqlx::query_as!(FeedMeta, "SELECT * FROM feeds WHERE id = ?", id)
             .fetch_one(&self.pool)
             .await
     }
 
+    #[tracing::instrument(level = "debug")]
     pub async fn get_entries(&self, feed_id: i64) -> Result<Vec<CachedEntry>, sqlx::Error> {
         sqlx::query_as!(
             CachedEntry,
@@ -59,6 +81,7 @@ impl Db {
         .await
     }
 
+    #[tracing::instrument(level = "debug")]
     pub async fn update_cached_entries(
         &self,
         feed_id: i64,

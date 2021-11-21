@@ -4,3 +4,6 @@ members = [
     "lib",
     "server"
 ]
+
+[profile.dev.package.backtrace]
+opt-level = 3
