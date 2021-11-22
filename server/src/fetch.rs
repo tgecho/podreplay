@@ -60,6 +60,8 @@ impl HttpClient {
         };
         let resp = req.send().await?;
 
+        tracing::trace!("status {:?}", resp.status());
+
         if resp.status() == StatusCode::NOT_MODIFIED {
             return Ok(FetchResponse::NotModified);
         }
@@ -71,6 +73,7 @@ impl HttpClient {
             .map(|etag| etag.to_string());
 
         let body = resp.bytes().await?;
+        tracing::trace!(?etag, ?body);
 
         let feed = Feed::from_source(&body, Some(uri))?;
 

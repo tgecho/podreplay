@@ -1,22 +1,7 @@
-mod db;
-mod fetch;
-pub mod replay;
-mod summary;
-
-use axum::{routing::get, AddExtensionLayer, Router, Server};
-use db::Db;
-use tower_http::trace::TraceLayer;
-
-use crate::fetch::HttpClient;
-
-pub fn make_app(db: Db, http: HttpClient) -> Router {
-    Router::new()
-        .route("/summary", get(summary::get))
-        .route("/replay", get(replay::get))
-        .layer(AddExtensionLayer::new(db))
-        .layer(AddExtensionLayer::new(http))
-        .layer(TraceLayer::new_for_http())
-}
+use axum::Server;
+use podreplay::db::Db;
+use podreplay::fetch::HttpClient;
+use podreplay::router::make_router;
 
 #[tokio::main]
 async fn main() {
@@ -34,7 +19,7 @@ async fn main() {
 
     let http = HttpClient::new();
 
-    let app = make_app(db, http);
+    let app = make_router(db, http);
 
     Server::bind(&"0.0.0.0:3000".parse().unwrap())
         .serve(app.into_make_service())

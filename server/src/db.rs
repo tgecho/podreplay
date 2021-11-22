@@ -33,6 +33,10 @@ impl Db {
         Ok(db)
     }
 
+    pub async fn migrate(&self) -> Result<(), sqlx::migrate::MigrateError> {
+        sqlx::migrate!("../migrations").run(&self.pool).await
+    }
+
     pub async fn get_version(&self) -> Result<String, sqlx::Error> {
         sqlx::query_scalar!("SELECT sqlite_version()")
             .fetch_one(&self.pool)

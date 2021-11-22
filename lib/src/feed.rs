@@ -10,6 +10,7 @@ use serde::Serialize;
 
 use crate::CachedEntry;
 
+#[derive(Debug)]
 pub struct Feed {
     feed: ParsedFeed,
     uri: Option<String>,

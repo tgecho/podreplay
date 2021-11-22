@@ -6,7 +6,7 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, SecondsFormat, Utc};
 use chronoutil::DateRule;
 use headers::{HeaderMap, HeaderValue};
 use hyper::{Response, StatusCode};
@@ -29,6 +29,7 @@ pub struct SummaryQuery {
     now: DateTime<Utc>,
 }
 
+#[tracing::instrument]
 pub async fn get<'a>(
     query: Query<SummaryQuery>,
     headers: HeaderMap,
@@ -49,7 +50,9 @@ pub async fn get<'a>(
     if let Some(expires) = request_expires {
         if now < expires {
             tracing::debug!("NotModified ({} < {:?})", now, expires);
-            return Ok(ReplayResponse::NotModified);
+            return Ok(ReplayResponse::NotModified {
+                headers: prepare_headers(request_expires, feed_request_etag.map(|e| e.to_string())),
+            });
         } else {
             tracing::debug!("NotModified {:?}", request_expires);
         }
@@ -65,10 +68,14 @@ pub async fn get<'a>(
     let (feed, fetched_etag) = match fetched {
         FetchResponse::NotModified => {
             tracing::debug!("NotModified (feed returned 304)");
-            return Ok(ReplayResponse::NotModified);
+            return Ok(ReplayResponse::NotModified {
+                headers: prepare_headers(request_expires, feed_request_etag.map(|e| e.to_string())),
+            });
         }
         FetchResponse::Fetched(feed, fetched_etag) => (feed, fetched_etag),
     };
+
+    tracing::trace!(?feed);
 
     let (feed_meta, entries) =
         get_updated_caches(db, &query.uri, now, &fetched_etag, &feed).await?;
@@ -117,7 +124,9 @@ fn prepare_headers(next_slot: Option<DateTime<Utc>>, fetched_etag: Option<String
         headers.insert("Expires", expires);
     }
     if let Some(feed_etag) = fetched_etag.and_then(|e| Some(extract_etag_value(&e)?.to_string())) {
-        let etag = if let Some(next_dt) = next_slot.map(|dt| dt.to_rfc3339()) {
+        let etag = if let Some(next_dt) =
+            next_slot.map(|dt| dt.to_rfc3339_opts(SecondsFormat::Secs, true))
+        {
             format!(r#""{}|{}""#, next_dt, feed_etag)
         } else {
             format!(r#""{}""#, feed_etag)
@@ -165,7 +174,9 @@ fn parse_request_etag(if_none_match: &str) -> (Option<&str>, Option<DateTime<Utc
 }
 
 pub enum ReplayResponse {
-    NotModified,
+    NotModified {
+        headers: HeaderMap,
+    },
     Success {
         headers: HeaderMap,
         feed: Feed,
@@ -179,7 +190,9 @@ impl IntoResponse for ReplayResponse {
 
     fn into_response(self) -> Response<Self::Body> {
         match self {
-            ReplayResponse::NotModified => StatusCode::NOT_MODIFIED.into_response().map(boxed),
+            ReplayResponse::NotModified { headers } => (headers, StatusCode::NOT_MODIFIED)
+                .into_response()
+                .map(boxed),
             ReplayResponse::Success {
                 headers,
                 feed: _,
@@ -202,6 +215,8 @@ impl IntoResponse for ReplayError {
     type BodyError = <Self::Body as HttpBody>::Error;
 
     fn into_response(self) -> Response<Self::Body> {
+        tracing::error!(?self);
+
         let body = match self {
             ReplayError::FetchError(err) => Body::from(err.to_string()),
             ReplayError::DatabaseError(err) => Body::from(err.to_string()),
@@ -211,49 +226,5 @@ impl IntoResponse for ReplayError {
             .status(StatusCode::INTERNAL_SERVER_ERROR)
             .body(body)
             .expect("Failed to build error response")
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use crate::{db::Db, fetch::HttpClient, make_app};
-    use axum::{
-        body::{Body, BoxBody},
-        http::Request,
-        Router,
-    };
-    use hyper::Response;
-    use tower::util::ServiceExt;
-    use tracing_test::traced_test;
-
-    async fn get(app: Router, uri: &str) -> Response<BoxBody> {
-        app.oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
-            .await
-            .unwrap()
-    }
-
-    #[traced_test]
-    #[tokio::test]
-    async fn hello() {
-        let mock = mockito::mock("GET", "/hellof")
-            .with_body("<xml></xml>")
-            .create();
-        let mock_url = &mockito::server_url();
-
-        let db = Db::new("sqlite://:memory:").await.unwrap();
-        let http = HttpClient::new();
-        let app = make_app(db, http);
-
-        let uri = format!(
-            "/replay?start=2021-10-23T01:09:00Z&now=2021-11-23T01:09:00Z&uri={}/hello",
-            mock_url
-        );
-        let response = get(app, &uri).await;
-        let _status = response.status();
-        let _body = hyper::body::to_bytes(response.into_body()).await.unwrap();
-        // assert_eq!(status, StatusCode::OK);
-        mock.assert();
-
-        // let response = super::get(axum::extract::Query());
     }
 }
