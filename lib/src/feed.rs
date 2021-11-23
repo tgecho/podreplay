@@ -1,14 +1,17 @@
 use std::collections::HashMap;
 
+use atom_syndication as atom;
 use chrono::{DateTime, Utc};
 pub use feed_rs::parser::ParseFeedError;
 use feed_rs::{
     model::{Entry, Feed as ParsedFeed},
     parser::{self},
 };
+use mime::Mime;
+use quick_xml::escape::escape;
 use serde::Serialize;
 
-use crate::CachedEntry;
+use crate::{CachedEntry, ReplayedItem};
 
 #[derive(Debug)]
 pub struct Feed {
@@ -89,5 +92,13 @@ impl From<Feed> for FeedSummary {
             uri: feed.uri,
             items,
         }
+    }
+}
+
+impl Feed {
+    pub fn into_replay(self, schedule: Vec<ReplayedItem>) -> atom::Feed {
+        let src = self.feed;
+        let mut feed = atom::FeedBuilder::default();
+        feed.build()
     }
 }

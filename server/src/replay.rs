@@ -194,10 +194,18 @@ impl IntoResponse for ReplayResponse {
                 .into_response()
                 .map(boxed),
             ReplayResponse::Success {
-                headers,
-                feed: _,
+                mut headers,
+                feed,
                 schedule,
-            } => (headers, Json(schedule)).into_response().map(boxed),
+            } => {
+                headers.append(
+                    "Content-Type",
+                    HeaderValue::from_str("application/atom+xml").unwrap(),
+                );
+                (headers, feed.into_replay(schedule).to_string())
+                    .into_response()
+                    .map(boxed)
+            }
         }
     }
 }

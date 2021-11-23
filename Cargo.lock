@@ -1253,10 +1253,12 @@ dependencies = [
 name = "podreplay_lib"
 version = "0.1.0"
 dependencies = [
+ "atom_syndication",
  "chrono",
  "chronoutil",
  "feed-rs",
- "rss",
+ "mime",
+ "quick-xml",
  "serde",
 ]
 
@@ -1469,18 +1471,6 @@ dependencies = [
  "untrusted",
  "web-sys",
  "winapi",
-]
-
-[[package]]
-name = "rss"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "36e19e299f301be17927a7c05b8fa1c621e3227e6c3a0da65492701642901ff7"
-dependencies = [
- "atom_syndication",
- "derive_builder",
- "never",
- "quick-xml",
 ]
 
 [[package]]
