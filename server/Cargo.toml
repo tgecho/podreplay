@@ -7,14 +7,14 @@ edition = "2021"
 
 [dependencies]
 podreplay_lib = {path = "../lib"}
-tokio = { version = "1.12.0", features=["full"]}
-hyper = { version = "0.14.13", features=["full"]}
+tokio = { version = "1.14.0", features=["full"]}
+hyper = { version = "0.14.15", features=["full"]}
 tracing = "0.1.29"
 tracing-subscriber = {version = "0.3.2", features=["env-filter"] }
 serde = {version = "1.0.130", features=["derive"]}
 chrono = { version = "0.4.19", features = ["serde"] }
 reqwest = "0.11.6"
-axum = {version = "0.3.0", features=["headers"]}
+axum = {version = "0.3.4", features=["headers"]}
 thiserror = "1.0.30"
 chronoutil = "0.2.3"
 sqlx = {git = "https://github.com/tgecho/sqlx", branch = "sqlite-datetime-utc", features=["sqlite", "chrono", "macros", "migrate", "runtime-tokio-rustls"]}

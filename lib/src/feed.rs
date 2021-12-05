@@ -7,8 +7,8 @@ use feed_rs::{
     model::{Entry, Feed as ParsedFeed},
     parser::{self},
 };
-use mime::Mime;
-use quick_xml::escape::escape;
+// use mime::Mime;
+// use quick_xml::escape::escape;
 use serde::Serialize;
 
 use crate::{CachedEntry, ReplayedItem};
@@ -96,9 +96,9 @@ impl From<Feed> for FeedSummary {
 }
 
 impl Feed {
-    pub fn into_replay(self, schedule: Vec<ReplayedItem>) -> atom::Feed {
-        let src = self.feed;
-        let mut feed = atom::FeedBuilder::default();
-        feed.build()
+    pub fn into_replay(self, _schedule: Vec<ReplayedItem>) -> atom::Feed {
+        let _src = self.feed;
+        let mut _feed = atom::FeedBuilder::default();
+        _feed.build()
     }
 }

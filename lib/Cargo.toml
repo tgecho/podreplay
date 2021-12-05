@@ -13,5 +13,9 @@ feed-rs = "1.0.0"
 mime = "0.3.16"
 quick-xml = "0.22.0"
 serde = "1.0.130"
+tracing = "0.1.29"
 
 [features]
+
+[dev-dependencies]
+pretty_assertions = "1.0.0"

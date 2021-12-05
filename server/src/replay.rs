@@ -4,7 +4,6 @@ use axum::{
     body::{boxed, Body, BoxBody, HttpBody},
     extract::{Extension, Query},
     response::IntoResponse,
-    Json,
 };
 use chrono::{DateTime, SecondsFormat, Utc};
 use chronoutil::DateRule;

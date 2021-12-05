@@ -1,5 +1,6 @@
 mod diff;
 pub mod feed;
+pub mod parser;
 mod replay;
 
 use chrono::{DateTime, Utc};
