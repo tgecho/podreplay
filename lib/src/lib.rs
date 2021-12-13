@@ -3,10 +3,13 @@ pub mod feed;
 pub mod parser;
 mod replay;
 
+#[cfg(test)]
+pub mod test_helpers;
+
 use chrono::{DateTime, Utc};
 pub use diff::diff_feed;
 pub use feed::{Feed, FeedSummary, FeedSummaryItem, ParseFeedError};
-pub use replay::{replay_feed, ReplayedItem};
+pub use replay::{replay_feed, ReplayedItem, Reschedule};
 
 #[derive(Debug)]
 pub struct FeedMeta {

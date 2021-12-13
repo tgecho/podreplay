@@ -10,19 +10,21 @@ pub struct ReplayedItem {
     pub timestamp: DateTime<Utc>,
 }
 
+pub type Reschedule = HashMap<String, DateTime<Utc>>;
+
 pub fn replay_feed(
     items: &[CachedEntry],
     rule: DateRule<DateTime<Utc>>,
     start: DateTime<Utc>,
     now: DateTime<Utc>,
     feed_noticed: DateTime<Utc>,
-) -> (Vec<ReplayedItem>, Option<DateTime<Utc>>) {
+) -> (Reschedule, Option<DateTime<Utc>>) {
     let mut published_before_cutoff = items
         .iter()
         .filter(|item| item.published.map_or(false, |p| p <= now));
     let mut instances_by_id = create_instances_by_id(items);
     let mut delayed = DelayedItems::new();
-    let mut results = Vec::new();
+    let mut results = HashMap::new();
 
     for slot in rule {
         if slot >= now {
@@ -54,10 +56,7 @@ pub fn replay_feed(
                                 break; // we've already replayed this item here, so we need to keep the slot empty
                             }
                             Unpublished::Never => {
-                                results.push(ReplayedItem {
-                                    id: item.id.clone(),
-                                    timestamp: slot,
-                                });
+                                results.insert(item.id.clone(), slot);
                                 instances.already_replayed = true;
                                 break; // slot filled, move to the next
                             }
@@ -65,10 +64,7 @@ pub fn replay_feed(
                     } else if let Some(published) = item.published {
                         // This was published after this slot, meaning we've apparently caught up.
                         // Keep replaying items at their original publication times.
-                        results.push(ReplayedItem {
-                            id: item.id.clone(),
-                            timestamp: published,
-                        });
+                        results.insert(item.id.clone(), published);
                         instances.already_replayed = true;
                     }
                 }

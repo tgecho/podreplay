@@ -26,7 +26,7 @@ async fn get(app: Router, uri: &str) -> Response<BoxBody> {
 #[tokio::test]
 async fn returns_200() {
     let mock = mockito::mock("GET", "/hello")
-        .with_body(include_str!("./atom.xml"))
+        .with_body(include_str!("../../lib/tests/data/sample_atom.xml"))
         .create();
     let mock_uri = format!("{}/hello", &mockito::server_url());
 

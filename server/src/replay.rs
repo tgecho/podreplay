@@ -10,7 +10,7 @@ use chronoutil::DateRule;
 use headers::{HeaderMap, HeaderValue};
 use hyper::{Response, StatusCode};
 use lazy_static::lazy_static;
-use podreplay_lib::{diff_feed, feed::create_cached_entry_map, replay_feed, Feed, ReplayedItem};
+use podreplay_lib::{diff_feed, feed::create_cached_entry_map, replay_feed, Feed, Reschedule};
 use regex::Regex;
 use serde::Deserialize;
 use thiserror::Error;
@@ -179,7 +179,7 @@ pub enum ReplayResponse {
     Success {
         headers: HeaderMap,
         feed: Feed,
-        schedule: Vec<ReplayedItem>,
+        schedule: Reschedule,
     },
 }
 
@@ -201,9 +201,10 @@ impl IntoResponse for ReplayResponse {
                     "Content-Type",
                     HeaderValue::from_str("application/atom+xml").unwrap(),
                 );
-                (headers, feed.into_replay(schedule).to_string())
-                    .into_response()
-                    .map(boxed)
+                (headers, ()).into_response().map(boxed)
+                // (headers, feed.into_replay(schedule).to_string())
+                //     .into_response()
+                //     .map(boxed)
             }
         }
     }
