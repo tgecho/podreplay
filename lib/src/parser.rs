@@ -1,3 +1,4 @@
+use chrono::{DateTime, SecondsFormat, Utc};
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
 use quick_xml::Reader;
 use std::io::{BufRead, Write};
@@ -72,7 +73,7 @@ fn parse_item<B: BufRead, W: Write>(
     let mut buf = Vec::new();
     let mut events = Vec::new();
     let mut skipped_timestamp: Option<(usize, BytesStart)> = None;
-    let mut target_timestamp: Option<String> = None;
+    let mut target_timestamp: Option<DateTime<Utc>> = None;
     let mut had_id = false;
     let mut had_timestamp = false;
     loop {
@@ -101,16 +102,17 @@ fn parse_item<B: BufRead, W: Write>(
 
                         if let Some(rescheduled_timestamp) = reschedule.get(&guid) {
                             // TODO: figure out how to get the correct format here
-                            let timestamp_str = rescheduled_timestamp.to_string();
                             events.extend(element(start, guid));
 
                             if let Some((ts_index, ts_start)) = skipped_timestamp.take() {
                                 // The original timestamp element was placed before
                                 // the guid, so we can write it now that we know the
                                 // target timestamp.
+                                let timestamp_str =
+                                    format_timestamp(ts_start.name(), rescheduled_timestamp);
                                 events.splice(ts_index..ts_index, element(ts_start, timestamp_str));
                             } else {
-                                target_timestamp = Some(timestamp_str);
+                                target_timestamp = Some(*rescheduled_timestamp);
                             }
                         } else {
                             reader.read_to_end(item_tag, &mut start_buf)?;
@@ -121,7 +123,8 @@ fn parse_item<B: BufRead, W: Write>(
                         had_timestamp = true;
                         reader.read_to_end(element_tag, &mut start_buf)?;
                         if let Some(target_timestamp) = target_timestamp.take() {
-                            events.extend(element(start, target_timestamp.to_string()));
+                            let timestamp_str = format_timestamp(element_tag, &target_timestamp);
+                            events.extend(element(start, timestamp_str));
                         } else {
                             // We haven't seen the guid of this item yet, so we
                             // can't know what the target timestamp is or even
@@ -143,6 +146,13 @@ fn parse_item<B: BufRead, W: Write>(
             }
         }
         buf.clear();
+    }
+}
+
+fn format_timestamp(element_tag: &[u8], target_timestamp: &DateTime<Utc>) -> String {
+    match element_tag {
+        b"pubDate" => target_timestamp.to_rfc2822(),
+        _ => target_timestamp.to_rfc3339_opts(SecondsFormat::Secs, true),
     }
 }
 
@@ -179,10 +189,9 @@ mod tests {
             parse_dt("2021-12-13T16:00:00"),
         )]);
         let output = parse_feed_to_str(xml, &reschedule);
-        // TODO: match timestamp formatting
         let expected = xml.replace(
             "        <updated>2003-12-13T18:30:02Z</updated>",
-            "        <updated>2021-12-13 16:00:00 UTC</updated>",
+            "        <updated>2021-12-13T16:00:00Z</updated>",
         );
         assert_eq!(output, expected);
     }
@@ -203,15 +212,14 @@ mod tests {
             ),
         ]);
         let output = parse_feed_to_str(xml, &reschedule);
-        // TODO: match timestamp formatting
         let expected = xml
             .replace(
                 "<pubDate>Mon, 30 Sep 2002 01:56:02 GMT</pubDate>",
-                "<pubDate>2021-12-13 16:00:00 UTC</pubDate>",
+                "<pubDate>Mon, 13 Dec 2021 16:00:00 +0000</pubDate>",
             )
             .replace(
                 "<pubDate>Sun, 29 Sep 2002 19:59:01 GMT</pubDate>",
-                "<pubDate>2021-12-20 16:00:00 UTC</pubDate>",
+                "<pubDate>Mon, 20 Dec 2021 16:00:00 +0000</pubDate>",
             );
         assert_eq!(output, expected);
     }
