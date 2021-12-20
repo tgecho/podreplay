@@ -3,7 +3,7 @@
 use std::io::{Cursor, Seek};
 
 use axum::{
-    body::{boxed, Body, BoxBody, HttpBody},
+    body::{boxed, Body, BoxBody},
     extract::{Extension, Query},
     response::IntoResponse,
 };
@@ -183,10 +183,7 @@ pub enum ReplayResponse {
 }
 
 impl IntoResponse for ReplayResponse {
-    type Body = BoxBody;
-    type BodyError = <Self::Body as HttpBody>::Error;
-
-    fn into_response(self) -> Response<Self::Body> {
+    fn into_response(self) -> Response<BoxBody> {
         match self {
             ReplayResponse::NotModified { headers } => (headers, StatusCode::NOT_MODIFIED)
                 .into_response()
@@ -215,10 +212,7 @@ pub enum ReplayError {
 }
 
 impl IntoResponse for ReplayError {
-    type Body = Body;
-    type BodyError = <Self::Body as HttpBody>::Error;
-
-    fn into_response(self) -> Response<Self::Body> {
+    fn into_response(self) -> Response<BoxBody> {
         tracing::error!(?self);
 
         let body = match self {
@@ -228,7 +222,7 @@ impl IntoResponse for ReplayError {
 
         Response::builder()
             .status(StatusCode::INTERNAL_SERVER_ERROR)
-            .body(body)
+            .body(boxed(body))
             .expect("Failed to build error response")
     }
 }
