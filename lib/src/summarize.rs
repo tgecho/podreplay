@@ -32,15 +32,15 @@ pub struct FeedSummary {
 }
 
 #[derive(Error, Debug)]
-pub enum FeedSummaryError {
+pub enum SummarizeError {
     #[error("failed to parse feed")]
     Parse(#[from] quick_xml::Error),
 }
 
 impl FeedSummary {
-    pub fn new<R: BufRead>(reader: &mut R) -> Result<Self, FeedSummaryError> {
+    pub fn new<R: BufRead>(reader: &mut R) -> Result<Self, SummarizeError> {
         let reader = quick_xml::Reader::from_reader(reader);
-        read_feed(reader)
+        summarize_feed(reader)
     }
 
     pub fn from_items(items: Vec<Item>) -> Self {
@@ -52,9 +52,9 @@ impl FeedSummary {
     }
 }
 
-pub fn read_feed<R: BufRead>(
+pub fn summarize_feed<R: BufRead>(
     mut reader: quick_xml::Reader<R>,
-) -> Result<FeedSummary, FeedSummaryError> {
+) -> Result<FeedSummary, SummarizeError> {
     let mut results: Vec<Item> = Vec::new();
     let mut buf: Vec<u8> = Vec::new();
     let mut partial_item: Option<PartialItem> = None;

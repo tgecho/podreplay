@@ -1,6 +1,6 @@
 mod diff;
 mod reschedule;
-pub mod rewrite;
+mod rewrite;
 mod summarize;
 
 #[cfg(test)]
@@ -8,9 +8,9 @@ pub mod test_helpers;
 
 use chrono::{DateTime, Utc};
 pub use diff::{create_cached_entry_map, diff_feed};
-pub use summarize::{FeedSummary, FeedSummaryError};
-// pub use feed::{Feed, FeedSummary, FeedSummaryItem, ParseFeedError};
-pub use reschedule::{replay_feed, ReplayedItem, Reschedule};
+pub use reschedule::{reschedule_feed, Reschedule};
+pub use rewrite::{rewrite_feed, RewriteError};
+pub use summarize::{FeedSummary, SummarizeError};
 
 #[derive(Debug)]
 pub struct FeedMeta {

@@ -13,8 +13,8 @@ use headers::{HeaderMap, HeaderValue};
 use hyper::{Response, StatusCode};
 use lazy_static::lazy_static;
 use podreplay_lib::{
-    create_cached_entry_map, diff_feed, rewrite::write_feed_to_string, rewrite::FeedError,
-    replay_feed, FeedSummary, FeedSummaryError,
+    create_cached_entry_map, diff_feed, reschedule_feed, rewrite_feed, FeedSummary, RewriteError,
+    SummarizeError,
 };
 use regex::Regex;
 use serde::Deserialize;
@@ -90,9 +90,9 @@ pub async fn get<'a>(
     let rule = DateRule::weekly(query.start);
 
     let (replayed, next_slot) =
-        replay_feed(&entries, rule, query.start, now, feed_meta.first_fetched);
+        reschedule_feed(&entries, rule, query.start, now, feed_meta.first_fetched);
 
-    let body = write_feed_to_string(&mut feed_reader, &replayed)?;
+    let body = rewrite_feed(&mut feed_reader, &replayed, true)?;
 
     let headers = prepare_headers(next_slot, fetched_etag);
 
@@ -206,9 +206,9 @@ pub enum ReplayError {
     #[error("failed to fetch feed")]
     FetchError(#[from] FetchError),
     #[error("failed to fetch feed")]
-    ParseError(#[from] FeedSummaryError),
+    ParseError(#[from] SummarizeError),
     #[error("failed to rewrite feed")]
-    WriteError(#[from] FeedError),
+    WriteError(#[from] RewriteError),
     #[error("database request failed")]
     DatabaseError(#[from] sqlx::Error),
     #[error("unexpected internal error")]

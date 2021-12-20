@@ -1,10 +1,9 @@
+use crate::reschedule::Reschedule;
 use chrono::{DateTime, SecondsFormat, Utc};
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
 use quick_xml::Reader;
 use std::io::{BufRead, Write};
 use thiserror::Error;
-
-use crate::reschedule::Reschedule;
 
 /*
 TODO: Consider how/if we can rewrite (or omit?) the pubDate/lastPubDate/ttl/skipHours/skipDays channel elements
@@ -36,29 +35,34 @@ impl<W: Write> Writer<W> {
 }
 
 #[derive(Error, Debug)]
-pub enum FeedError {
+pub enum RewriteError {
     #[error("failed to parse feed")]
     Parse(#[from] quick_xml::Error),
     #[error("failed to write feed")]
     Write(quick_xml::Error),
 }
 
-pub fn write_feed_to_string<R: BufRead>(
+pub fn rewrite_feed<R: BufRead>(
     xml: R,
     reschedule: &Reschedule,
-) -> Result<Vec<u8>, FeedError> {
+    pretty: bool,
+) -> Result<Vec<u8>, RewriteError> {
     let reader = quick_xml::Reader::from_reader(xml);
     let mut output = Vec::new();
-    let writer = quick_xml::Writer::new_with_indent(&mut output, b' ', 4);
-    parse_feed(reader, writer, reschedule)?;
+    let writer = if pretty {
+        quick_xml::Writer::new_with_indent(&mut output, b' ', 4)
+    } else {
+        quick_xml::Writer::new(&mut output)
+    };
+    rewrite_feed_to_writer(reader, writer, reschedule)?;
     Ok(output)
 }
 
-pub fn parse_feed<R: BufRead, W: Write>(
+fn rewrite_feed_to_writer<R: BufRead, W: Write>(
     mut reader: quick_xml::Reader<R>,
     writer: quick_xml::Writer<W>,
     reschedule: &Reschedule,
-) -> Result<(), FeedError> {
+) -> Result<(), RewriteError> {
     let mut writer = Writer::new(writer);
     let mut buf = Vec::new();
     loop {
@@ -66,18 +70,18 @@ pub fn parse_feed<R: BufRead, W: Write>(
             Ok(Event::Eof) => break,
             Ok(Event::Start(start)) => match start.name() {
                 b"item" | b"entry" => {
-                    parse_item(start, &mut reader, &mut writer, reschedule)?;
+                    rewrite_or_skip_item(start, &mut reader, &mut writer, reschedule)?;
                 }
                 _ => {
                     writer.write(Event::Start(start))?;
                 }
             },
             Ok(ev) => {
-                writer.write(ev).map_err(FeedError::Write)?;
+                writer.write(ev).map_err(RewriteError::Write)?;
             }
             Err(e) => {
                 tracing::error!("Error at position {}: {:?}", reader.buffer_position(), e);
-                return Err(FeedError::Parse(e));
+                return Err(RewriteError::Parse(e));
             }
         }
         buf.clear();
@@ -85,7 +89,7 @@ pub fn parse_feed<R: BufRead, W: Write>(
     Ok(())
 }
 
-fn parse_item<B: BufRead, W: Write>(
+fn rewrite_or_skip_item<B: BufRead, W: Write>(
     start: BytesStart,
     reader: &mut Reader<B>,
     writer: &mut Writer<W>,
@@ -188,18 +192,16 @@ fn element<'a>(start: BytesStart, content: String) -> [Event<'a>; 3] {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use std::{collections::HashMap, io::Cursor};
 
     use crate::{reschedule::Reschedule, test_helpers::parse_dt};
 
-    use super::parse_feed;
+    use super::rewrite_feed;
     use pretty_assertions::assert_eq;
 
     fn parse_feed_to_str(xml: &str, reschedule: &Reschedule) -> String {
-        let reader = quick_xml::Reader::from_str(xml);
-        let mut output = Vec::new();
-        let writer = quick_xml::Writer::new_with_indent(&mut output, b' ', 4);
-        parse_feed(reader, writer, reschedule);
+        let reader = Cursor::new(xml);
+        let output = rewrite_feed(reader, reschedule, true).unwrap();
         String::from_utf8(output).unwrap()
     }
 
