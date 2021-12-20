@@ -34,6 +34,14 @@ impl<W: Write> Writer<W> {
     }
 }
 
+pub fn write_feed_to_string<R: BufRead>(xml: R, reschedule: &Reschedule) -> Vec<u8> {
+    let reader = quick_xml::Reader::from_reader(xml);
+    let mut output = Vec::new();
+    let writer = quick_xml::Writer::new_with_indent(&mut output, b' ', 4);
+    parse_feed(reader, writer, reschedule);
+    output
+}
+
 pub fn parse_feed<R: BufRead, W: Write>(
     mut reader: quick_xml::Reader<R>,
     writer: quick_xml::Writer<W>,

@@ -1,10 +1,9 @@
-use crate::CachedEntry;
+use crate::{reader::Item, CachedEntry};
 use chrono::{DateTime, Utc};
-use feed_rs::model::Entry;
 use std::collections::HashMap;
 
 pub fn diff_feed(
-    item_map: &HashMap<&str, &Entry>,
+    item_map: &HashMap<&str, &Item>,
     cached_map: &HashMap<&str, &CachedEntry>,
     feed_id: i64,
     now: DateTime<Utc>,
@@ -12,7 +11,7 @@ pub fn diff_feed(
     let mut updates = Vec::new();
 
     for (item_id, cached_item) in cached_map {
-        let published = item_map.get(item_id).and_then(|i| i.published);
+        let published = item_map.get(item_id).map(|i| i.timestamp);
         if published != cached_item.published {
             updates.push(CachedEntry {
                 id: cached_item.id.clone(),
@@ -28,7 +27,7 @@ pub fn diff_feed(
             updates.push(CachedEntry {
                 id: item.id.clone(),
                 feed_id,
-                published: item.published,
+                published: Some(item.timestamp),
                 noticed: now,
             });
         }
@@ -37,60 +36,40 @@ pub fn diff_feed(
     updates
 }
 
-#[cfg(test)]
-mod test {
-    use crate::feed::create_cached_entry_map;
-    use crate::test_helpers::{cached_entries, parse_dt};
-    use crate::{diff_feed, Feed};
-    use feed_rs::model::{Entry, Feed as ParsedFeed};
-    use std::collections::HashMap;
-
-    fn entry(id: &str, published: &str) -> Entry {
-        Entry {
-            id: id.to_string(),
-            title: None,
-            updated: None,
-            authors: Vec::new(),
-            content: None,
-            links: Vec::new(),
-            summary: None,
-            categories: Vec::new(),
-            contributors: Vec::new(),
-            published: Some(parse_dt(published)),
-            source: None,
-            rights: None,
-            media: Vec::new(),
+pub fn create_cached_entry_map(entries: &[CachedEntry]) -> HashMap<&str, &CachedEntry> {
+    let mut map: HashMap<&str, &CachedEntry> = HashMap::new();
+    for item in entries.iter() {
+        match map.get(item.id.as_str()) {
+            Some(entry) => {
+                if item.noticed > entry.noticed {
+                    map.insert(&item.id, item);
+                }
+            }
+            None => {
+                map.insert(&item.id, item);
+            }
         }
     }
+    map
+}
+
+#[cfg(test)]
+mod test {
+    use super::create_cached_entry_map;
+    use crate::reader::Item;
+    use crate::test_helpers::{cached_entries, parse_dt};
+    use crate::{diff_feed, Feed};
+    use std::collections::HashMap;
 
     fn feed(items: Vec<(&str, &str)>) -> Feed {
         let entries = items
             .into_iter()
-            .map(|(id, published)| entry(id, published))
+            .map(|(id, timestamp)| Item {
+                id: id.to_string(),
+                timestamp: parse_dt(timestamp),
+            })
             .collect();
-        Feed::new(
-            ParsedFeed {
-                feed_type: feed_rs::model::FeedType::Atom,
-                id: "id".to_string(),
-                title: None,
-                updated: None,
-                authors: Vec::new(),
-                description: None,
-                links: Vec::new(),
-                categories: Vec::new(),
-                contributors: Vec::new(),
-                generator: None,
-                icon: None,
-                language: None,
-                logo: None,
-                published: None,
-                rating: None,
-                rights: None,
-                ttl: None,
-                entries,
-            },
-            None,
-        )
+        Feed::from_items(entries)
     }
 
     #[test]

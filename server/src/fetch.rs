@@ -1,7 +1,7 @@
 #![allow(clippy::large_enum_variant)]
 
+use axum::body::Bytes;
 use hyper::StatusCode;
-use podreplay_lib::{Feed, ParseFeedError};
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
 use reqwest_tracing::TracingMiddleware;
 use thiserror::Error;
@@ -19,7 +19,7 @@ impl std::fmt::Debug for HttpClient {
 
 pub enum FetchResponse {
     NotModified,
-    Fetched(Feed, Option<String>),
+    Fetched(Bytes, Option<String>),
 }
 
 #[derive(Error, Debug)]
@@ -28,8 +28,8 @@ pub enum FetchError {
     Request(#[from] reqwest_middleware::Error),
     #[error("failed to read feed body")]
     Read(#[from] reqwest::Error),
-    #[error("failed to parse feed")]
-    Parse(#[from] ParseFeedError),
+    // #[error("failed to parse feed")]
+    // Parse(#[from] ParseFeedError),
 }
 
 impl Default for HttpClient {
@@ -75,8 +75,6 @@ impl HttpClient {
         let body = resp.bytes().await?;
         tracing::trace!(?etag, ?body);
 
-        let feed = Feed::from_source(&body, Some(uri))?;
-
-        Ok(FetchResponse::Fetched(feed, etag))
+        Ok(FetchResponse::Fetched(body, etag))
     }
 }

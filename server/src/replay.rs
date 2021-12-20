@@ -1,5 +1,7 @@
 #![allow(clippy::large_enum_variant)]
 
+use std::io::{Cursor, Seek};
+
 use axum::{
     body::{boxed, Body, BoxBody, HttpBody},
     extract::{Extension, Query},
@@ -10,7 +12,9 @@ use chronoutil::DateRule;
 use headers::{HeaderMap, HeaderValue};
 use hyper::{Response, StatusCode};
 use lazy_static::lazy_static;
-use podreplay_lib::{diff_feed, feed::create_cached_entry_map, replay_feed, Feed, Reschedule};
+use podreplay_lib::{
+    create_cached_entry_map, diff_feed, parser::write_feed_to_string, replay_feed, Feed,
+};
 use regex::Regex;
 use serde::Deserialize;
 use thiserror::Error;
@@ -64,17 +68,20 @@ pub async fn get<'a>(
         )
         .await?;
 
-    let (feed, fetched_etag) = match fetched {
+    let (feed_body, fetched_etag) = match fetched {
         FetchResponse::NotModified => {
             tracing::debug!("NotModified (feed returned 304)");
             return Ok(ReplayResponse::NotModified {
                 headers: prepare_headers(request_expires, feed_request_etag.map(|e| e.to_string())),
             });
         }
-        FetchResponse::Fetched(feed, fetched_etag) => (feed, fetched_etag),
+        FetchResponse::Fetched(feed_body, fetched_etag) => (feed_body, fetched_etag),
     };
 
+    let mut feed_reader = Cursor::new(feed_body);
+    let feed = Feed::from_reader(&mut feed_reader).unwrap();
     tracing::trace!(?feed);
+    feed_reader.rewind().unwrap();
 
     let (feed_meta, entries) =
         get_updated_caches(db, &query.uri, now, &fetched_etag, &feed).await?;
@@ -84,14 +91,12 @@ pub async fn get<'a>(
     let (replayed, next_slot) =
         replay_feed(&entries, rule, query.start, now, feed_meta.first_fetched);
 
+    let body = write_feed_to_string(&mut feed_reader, &replayed);
+
     let headers = prepare_headers(next_slot, fetched_etag);
 
     // TODO: use replayed and the fetched feed to build a final feed
-    Ok(ReplayResponse::Success {
-        feed,
-        schedule: replayed,
-        headers,
-    })
+    Ok(ReplayResponse::Success { body, headers })
 }
 
 async fn get_updated_caches(
@@ -173,14 +178,8 @@ fn parse_request_etag(if_none_match: &str) -> (Option<&str>, Option<DateTime<Utc
 }
 
 pub enum ReplayResponse {
-    NotModified {
-        headers: HeaderMap,
-    },
-    Success {
-        headers: HeaderMap,
-        feed: Feed,
-        schedule: Reschedule,
-    },
+    NotModified { headers: HeaderMap },
+    Success { headers: HeaderMap, body: Vec<u8> },
 }
 
 impl IntoResponse for ReplayResponse {
@@ -192,16 +191,13 @@ impl IntoResponse for ReplayResponse {
             ReplayResponse::NotModified { headers } => (headers, StatusCode::NOT_MODIFIED)
                 .into_response()
                 .map(boxed),
-            ReplayResponse::Success {
-                mut headers,
-                feed,
-                schedule,
-            } => {
+            ReplayResponse::Success { mut headers, body } => {
+                // TODO: match original feed content-type?
                 headers.append(
                     "Content-Type",
                     HeaderValue::from_str("application/atom+xml").unwrap(),
                 );
-                (headers, ()).into_response().map(boxed)
+                (headers, body).into_response().map(boxed)
                 // (headers, feed.into_replay(schedule).to_string())
                 //     .into_response()
                 //     .map(boxed)

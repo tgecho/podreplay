@@ -5,6 +5,7 @@ use axum::{
 };
 use hyper::{Response, StatusCode};
 use podreplay::{db::Db, fetch::HttpClient, router::make_router};
+use pretty_assertions::assert_eq;
 use tower::util::ServiceExt;
 use tracing_test::traced_test;
 
@@ -25,9 +26,8 @@ async fn get(app: Router, uri: &str) -> Response<BoxBody> {
 #[traced_test]
 #[tokio::test]
 async fn returns_200() {
-    let mock = mockito::mock("GET", "/hello")
-        .with_body(include_str!("../../lib/tests/data/sample_atom.xml"))
-        .create();
+    let xml = include_str!("../../lib/tests/data/sample_atom.xml");
+    let mock = mockito::mock("GET", "/hello").with_body(xml).create();
     let mock_uri = format!("{}/hello", &mockito::server_url());
 
     let app = test_app().await;
@@ -41,7 +41,12 @@ async fn returns_200() {
     assert_eq!(response.status(), StatusCode::OK);
 
     let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
-    assert_eq!("TODO", body);
+
+    let expected = xml.replace(
+        "        <updated>2003-12-13T18:30:02Z</updated>",
+        "        <updated>2021-10-23T01:09:00Z</updated>",
+    );
+    assert_eq!(expected, body);
 
     mock.assert();
 }
