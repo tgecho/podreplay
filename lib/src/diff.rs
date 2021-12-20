@@ -58,10 +58,10 @@ mod test {
     use super::create_cached_entry_map;
     use crate::reader::Item;
     use crate::test_helpers::{cached_entries, parse_dt};
-    use crate::{diff_feed, Feed};
+    use crate::{diff_feed, FeedSummary};
     use std::collections::HashMap;
 
-    fn feed(items: Vec<(&str, &str)>) -> Feed {
+    fn feed(items: Vec<(&str, &str)>) -> FeedSummary {
         let entries = items
             .into_iter()
             .map(|(id, timestamp)| Item {
@@ -69,7 +69,7 @@ mod test {
                 timestamp: parse_dt(timestamp),
             })
             .collect();
-        Feed::from_items(entries)
+        FeedSummary::from_items(entries)
     }
 
     #[test]

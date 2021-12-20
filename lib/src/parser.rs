@@ -2,6 +2,7 @@ use chrono::{DateTime, SecondsFormat, Utc};
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
 use quick_xml::Reader;
 use std::io::{BufRead, Write};
+use thiserror::Error;
 
 use crate::replay::Reschedule;
 
@@ -25,7 +26,7 @@ impl<W: Write> Writer<W> {
                 // a 1:1 output, we need to undo this (and trick quick-xml)
                 // before writing.
                 // https://github.com/tafia/quick-xml/issues/311
-                let unescaped = data.unescaped().unwrap().into_owned();
+                let unescaped = data.unescaped()?.into_owned();
                 let ev = Event::CData(BytesText::from_escaped(&unescaped));
                 self.writer.write_event(ev)
             }
@@ -34,19 +35,30 @@ impl<W: Write> Writer<W> {
     }
 }
 
-pub fn write_feed_to_string<R: BufRead>(xml: R, reschedule: &Reschedule) -> Vec<u8> {
+#[derive(Error, Debug)]
+pub enum FeedError {
+    #[error("failed to parse feed")]
+    Parse(#[from] quick_xml::Error),
+    #[error("failed to write feed")]
+    Write(quick_xml::Error),
+}
+
+pub fn write_feed_to_string<R: BufRead>(
+    xml: R,
+    reschedule: &Reschedule,
+) -> Result<Vec<u8>, FeedError> {
     let reader = quick_xml::Reader::from_reader(xml);
     let mut output = Vec::new();
     let writer = quick_xml::Writer::new_with_indent(&mut output, b' ', 4);
-    parse_feed(reader, writer, reschedule);
-    output
+    parse_feed(reader, writer, reschedule)?;
+    Ok(output)
 }
 
 pub fn parse_feed<R: BufRead, W: Write>(
     mut reader: quick_xml::Reader<R>,
     writer: quick_xml::Writer<W>,
     reschedule: &Reschedule,
-) {
+) -> Result<(), FeedError> {
     let mut writer = Writer::new(writer);
     let mut buf = Vec::new();
     loop {
@@ -54,21 +66,23 @@ pub fn parse_feed<R: BufRead, W: Write>(
             Ok(Event::Eof) => break,
             Ok(Event::Start(start)) => match start.name() {
                 b"item" | b"entry" => {
-                    parse_item(start, &mut reader, &mut writer, reschedule).unwrap();
+                    parse_item(start, &mut reader, &mut writer, reschedule)?;
                 }
                 _ => {
-                    writer.write(Event::Start(start)).unwrap();
+                    writer.write(Event::Start(start))?;
                 }
             },
             Ok(ev) => {
-                writer.write(ev).unwrap();
+                writer.write(ev).map_err(FeedError::Write)?;
             }
             Err(e) => {
-                tracing::error!("Error at position {}: {:?}", reader.buffer_position(), e)
+                tracing::error!("Error at position {}: {:?}", reader.buffer_position(), e);
+                return Err(FeedError::Parse(e));
             }
         }
         buf.clear();
     }
+    Ok(())
 }
 
 fn parse_item<B: BufRead, W: Write>(

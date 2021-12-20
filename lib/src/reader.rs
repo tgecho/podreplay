@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 use diligent_date_parser::parse_date;
 use quick_xml::events::{BytesStart, Event};
 use std::{collections::HashMap, io::BufRead};
+use thiserror::Error;
 
 #[derive(Debug)]
 struct PartialItem<'a> {
@@ -26,23 +27,24 @@ pub struct Item {
 }
 
 #[derive(Debug)]
-pub struct Feed {
+pub struct FeedSummary {
     items: Vec<Item>,
 }
 
-impl Feed {
-    pub fn from_str(xml: &str) -> Result<Feed, ()> {
-        let reader = quick_xml::Reader::from_str(xml);
-        read_feed(reader)
-    }
+#[derive(Error, Debug)]
+pub enum FeedSummaryError {
+    #[error("failed to parse feed")]
+    Parse(#[from] quick_xml::Error),
+}
 
-    pub fn from_reader<R: BufRead>(reader: &mut R) -> Result<Feed, ()> {
+impl FeedSummary {
+    pub fn new<R: BufRead>(reader: &mut R) -> Result<Self, FeedSummaryError> {
         let reader = quick_xml::Reader::from_reader(reader);
         read_feed(reader)
     }
 
     pub fn from_items(items: Vec<Item>) -> Self {
-        Feed { items }
+        FeedSummary { items }
     }
 
     pub fn id_map(&self) -> HashMap<&str, &Item> {
@@ -50,7 +52,9 @@ impl Feed {
     }
 }
 
-pub fn read_feed<R: BufRead>(mut reader: quick_xml::Reader<R>) -> Result<Feed, ()> {
+pub fn read_feed<R: BufRead>(
+    mut reader: quick_xml::Reader<R>,
+) -> Result<FeedSummary, FeedSummaryError> {
     let mut results: Vec<Item> = Vec::new();
     let mut buf: Vec<u8> = Vec::new();
     let mut partial_item: Option<PartialItem> = None;
@@ -102,12 +106,12 @@ pub fn read_feed<R: BufRead>(mut reader: quick_xml::Reader<R>) -> Result<Feed, (
             }
             Err(e) => {
                 tracing::error!("Error at position {}: {:?}", reader.buffer_position(), e);
-                return Err(());
+                return Err(e.into());
             }
         }
         buf.clear();
     }
-    Ok(Feed::from_items(results))
+    Ok(FeedSummary::from_items(results))
 }
 
 fn parse_timestamp(timestamp_str: String) -> Option<DateTime<Utc>> {
@@ -116,14 +120,16 @@ fn parse_timestamp(timestamp_str: String) -> Option<DateTime<Utc>> {
 
 #[cfg(test)]
 mod test {
-    use super::{Feed, Item};
+    use std::io::Cursor;
+
+    use super::{FeedSummary, Item};
     use crate::test_helpers::parse_dt;
     use pretty_assertions::assert_eq;
 
     #[test]
     fn atom() {
         let xml = include_str!("../tests/data/sample_atom.xml");
-        let output = Feed::from_str(xml).unwrap();
+        let output = FeedSummary::new(&mut Cursor::new(xml)).unwrap();
         let expected = vec![Item {
             id: "urn:uuid:1225c695-cfb8-4ebb-aaaa-80da344efa6a".to_string(),
             timestamp: parse_dt("2003-12-13T18:30:02"),
@@ -134,7 +140,7 @@ mod test {
     #[test]
     fn rss2() {
         let xml = include_str!("../tests/data/sample_rss_2.0.xml");
-        let output = Feed::from_str(xml).unwrap();
+        let output = FeedSummary::new(&mut Cursor::new(xml)).unwrap();
         let expected = vec![
             Item {
                 id: "http://scriptingnews.userland.com/backissues/2002/09/29#When:6:56:02PM"

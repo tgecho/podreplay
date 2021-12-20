@@ -5,7 +5,7 @@ use podreplay::router::make_router;
 
 #[tokio::main]
 async fn main() {
-    color_eyre::install().unwrap();
+    color_eyre::install().expect("Failed to install color_eyre");
 
     #[cfg(debug_assertions)]
     if std::env::var_os("RUST_LOG").is_none() {
@@ -21,8 +21,8 @@ async fn main() {
 
     let app = make_router(db, http);
 
-    Server::bind(&"0.0.0.0:3000".parse().unwrap())
+    Server::bind(&"0.0.0.0:3000".parse().expect("Invalid host/port string"))
         .serve(app.into_make_service())
         .await
-        .unwrap();
+        .expect("Failed to start server");
 }

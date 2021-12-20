@@ -13,7 +13,8 @@ use headers::{HeaderMap, HeaderValue};
 use hyper::{Response, StatusCode};
 use lazy_static::lazy_static;
 use podreplay_lib::{
-    create_cached_entry_map, diff_feed, parser::write_feed_to_string, replay_feed, Feed,
+    create_cached_entry_map, diff_feed, parser::write_feed_to_string, parser::FeedError,
+    replay_feed, FeedSummary, FeedSummaryError,
 };
 use regex::Regex;
 use serde::Deserialize;
@@ -79,9 +80,9 @@ pub async fn get<'a>(
     };
 
     let mut feed_reader = Cursor::new(feed_body);
-    let feed = Feed::from_reader(&mut feed_reader).unwrap();
+    let feed = FeedSummary::new(&mut feed_reader)?;
     tracing::trace!(?feed);
-    feed_reader.rewind().unwrap();
+    feed_reader.rewind()?;
 
     let (feed_meta, entries) =
         get_updated_caches(db, &query.uri, now, &fetched_etag, &feed).await?;
@@ -91,7 +92,7 @@ pub async fn get<'a>(
     let (replayed, next_slot) =
         replay_feed(&entries, rule, query.start, now, feed_meta.first_fetched);
 
-    let body = write_feed_to_string(&mut feed_reader, &replayed);
+    let body = write_feed_to_string(&mut feed_reader, &replayed)?;
 
     let headers = prepare_headers(next_slot, fetched_etag);
 
@@ -104,7 +105,7 @@ async fn get_updated_caches(
     uri: &str,
     now: DateTime<Utc>,
     fetched_etag: &Option<String>,
-    feed: &Feed,
+    feed: &FeedSummary,
 ) -> Result<(podreplay_lib::FeedMeta, Vec<podreplay_lib::CachedEntry>), ReplayError> {
     let feed_meta = db.update_feed_meta(uri, &now, fetched_etag).await?;
 
@@ -195,9 +196,6 @@ impl IntoResponse for ReplayResponse {
                     HeaderValue::from_str("application/atom+xml").unwrap(),
                 );
                 (headers, body).into_response().map(boxed)
-                // (headers, feed.into_replay(schedule).to_string())
-                //     .into_response()
-                //     .map(boxed)
             }
         }
     }
@@ -207,18 +205,21 @@ impl IntoResponse for ReplayResponse {
 pub enum ReplayError {
     #[error("failed to fetch feed")]
     FetchError(#[from] FetchError),
+    #[error("failed to fetch feed")]
+    ParseError(#[from] FeedSummaryError),
+    #[error("failed to rewrite feed")]
+    WriteError(#[from] FeedError),
     #[error("database request failed")]
     DatabaseError(#[from] sqlx::Error),
+    #[error("unexpected internal error")]
+    UnknownError(#[from] std::io::Error),
 }
 
 impl IntoResponse for ReplayError {
     fn into_response(self) -> Response<BoxBody> {
         tracing::error!(?self);
 
-        let body = match self {
-            ReplayError::FetchError(err) => Body::from(err.to_string()),
-            ReplayError::DatabaseError(err) => Body::from(err.to_string()),
-        };
+        let body = Body::from(self.to_string());
 
         Response::builder()
             .status(StatusCode::INTERNAL_SERVER_ERROR)

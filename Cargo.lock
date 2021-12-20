@@ -1198,6 +1198,7 @@ dependencies = [
  "pretty_assertions",
  "quick-xml",
  "serde",
+ "thiserror",
  "tracing",
 ]
 
