@@ -1,4 +1,4 @@
-use crate::{reader::Item, CachedEntry};
+use crate::{summarize::Item, CachedEntry};
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 
@@ -56,7 +56,7 @@ pub fn create_cached_entry_map(entries: &[CachedEntry]) -> HashMap<&str, &Cached
 #[cfg(test)]
 mod test {
     use super::create_cached_entry_map;
-    use crate::reader::Item;
+    use crate::summarize::Item;
     use crate::test_helpers::{cached_entries, parse_dt};
     use crate::{diff_feed, FeedSummary};
     use std::collections::HashMap;

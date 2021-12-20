@@ -13,7 +13,7 @@ use headers::{HeaderMap, HeaderValue};
 use hyper::{Response, StatusCode};
 use lazy_static::lazy_static;
 use podreplay_lib::{
-    create_cached_entry_map, diff_feed, parser::write_feed_to_string, parser::FeedError,
+    create_cached_entry_map, diff_feed, rewrite::write_feed_to_string, rewrite::FeedError,
     replay_feed, FeedSummary, FeedSummaryError,
 };
 use regex::Regex;

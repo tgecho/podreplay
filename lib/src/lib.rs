@@ -1,17 +1,16 @@
 mod diff;
-// pub mod feed;
-pub mod parser;
-mod reader;
-mod replay;
+mod reschedule;
+pub mod rewrite;
+mod summarize;
 
 #[cfg(test)]
 pub mod test_helpers;
 
 use chrono::{DateTime, Utc};
 pub use diff::{create_cached_entry_map, diff_feed};
-pub use reader::{FeedSummary, FeedSummaryError};
+pub use summarize::{FeedSummary, FeedSummaryError};
 // pub use feed::{Feed, FeedSummary, FeedSummaryItem, ParseFeedError};
-pub use replay::{replay_feed, ReplayedItem, Reschedule};
+pub use reschedule::{replay_feed, ReplayedItem, Reschedule};
 
 #[derive(Debug)]
 pub struct FeedMeta {

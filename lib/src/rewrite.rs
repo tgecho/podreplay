@@ -4,7 +4,7 @@ use quick_xml::Reader;
 use std::io::{BufRead, Write};
 use thiserror::Error;
 
-use crate::replay::Reschedule;
+use crate::reschedule::Reschedule;
 
 /*
 TODO: Consider how/if we can rewrite (or omit?) the pubDate/lastPubDate/ttl/skipHours/skipDays channel elements
@@ -190,7 +190,7 @@ fn element<'a>(start: BytesStart, content: String) -> [Event<'a>; 3] {
 mod tests {
     use std::collections::HashMap;
 
-    use crate::{replay::Reschedule, test_helpers::parse_dt};
+    use crate::{reschedule::Reschedule, test_helpers::parse_dt};
 
     use super::parse_feed;
     use pretty_assertions::assert_eq;
