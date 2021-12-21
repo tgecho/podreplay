@@ -80,12 +80,11 @@ pub async fn get<'a>(
     };
 
     let mut feed_reader = Cursor::new(feed_body);
-    let feed = FeedSummary::new(&mut feed_reader)?;
-    tracing::trace!(?feed);
+    let summary = FeedSummary::new(&mut feed_reader)?;
     feed_reader.rewind()?;
 
     let (feed_meta, entries) =
-        get_updated_caches(db, &query.uri, now, &fetched_etag, &feed).await?;
+        get_updated_caches(db, &query.uri, now, &fetched_etag, &summary).await?;
 
     let rule = DateRule::weekly(query.start);
 
