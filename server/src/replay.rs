@@ -186,16 +186,16 @@ pub enum ReplayResponse {
 impl IntoResponse for ReplayResponse {
     fn into_response(self) -> Response<BoxBody> {
         match self {
-            ReplayResponse::NotModified { headers } => (headers, StatusCode::NOT_MODIFIED)
-                .into_response()
-                .map(boxed),
+            ReplayResponse::NotModified { headers } => {
+                (headers, StatusCode::NOT_MODIFIED).into_response()
+            }
             ReplayResponse::Success { mut headers, body } => {
                 // TODO: match original feed content-type?
                 headers.append(
                     "Content-Type",
                     HeaderValue::from_str("application/atom+xml").unwrap(),
                 );
-                (headers, body).into_response().map(boxed)
+                (headers, body).into_response()
             }
         }
     }
@@ -218,9 +218,7 @@ pub enum ReplayError {
 impl IntoResponse for ReplayError {
     fn into_response(self) -> Response<BoxBody> {
         tracing::error!(?self);
-
         let body = Body::from(self.to_string());
-
         Response::builder()
             .status(StatusCode::INTERNAL_SERVER_ERROR)
             .body(boxed(body))

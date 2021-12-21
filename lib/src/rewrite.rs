@@ -192,7 +192,7 @@ fn element<'a>(start: BytesStart, content: String) -> [Event<'a>; 3] {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, io::Cursor};
+    use std::collections::HashMap;
 
     use crate::{reschedule::Reschedule, test_helpers::parse_dt};
 
@@ -200,8 +200,7 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     fn parse_feed_to_str(xml: &str, reschedule: &Reschedule) -> String {
-        let reader = Cursor::new(xml);
-        let output = rewrite_feed(reader, reschedule, true).unwrap();
+        let output = rewrite_feed(xml.as_bytes(), reschedule, true).unwrap();
         String::from_utf8(output).unwrap()
     }
 

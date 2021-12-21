@@ -1,16 +1,85 @@
-use axum::{extract::Query, Json};
-use podreplay_lib::{Feed, FeedSummary};
+use crate::fetch::{FetchError, FetchResponse, HttpClient};
+use axum::{
+    body::{boxed, BoxBody},
+    extract::{Extension, Query},
+    response::{IntoResponse, Response},
+    Json,
+};
+use headers::{HeaderMap, HeaderValue};
+use hyper::{body::Buf, Body, StatusCode};
+use podreplay_lib::{FeedSummary, SummarizeError};
 use serde::Deserialize;
+use thiserror::Error;
 
 #[derive(Deserialize)]
 pub struct SummaryQuery {
     uri: String,
 }
 
-pub async fn get(query: Query<SummaryQuery>) -> Json<FeedSummary> {
-    let source = include_bytes!("serial.xml");
-    let _ = query.uri;
-    let feed = Feed::from_source(source, Some("https://feeds.simplecast.com/xl36XBC2")).unwrap();
-    let summary: FeedSummary = feed.into();
-    Json(summary)
+pub async fn get(
+    query: Query<SummaryQuery>,
+    headers: HeaderMap,
+    Extension(http): Extension<HttpClient>,
+) -> Result<SummaryResponse, SummaryError> {
+    let if_none_match = headers
+        .get("if-none-match")
+        .and_then(|inm| inm.to_str().ok())
+        .map(|s| s.to_string());
+    tracing::debug!("If-None-Match: {:?}", if_none_match);
+    let fetched = http.get_feed(&query.uri, if_none_match).await?;
+
+    let (feed_body, fetched_etag) = match fetched {
+        FetchResponse::NotModified => {
+            tracing::debug!("NotModified (feed returned 304)");
+            return Ok(SummaryResponse::NotModified);
+        }
+        FetchResponse::Fetched(feed_body, fetched_etag) => (feed_body, fetched_etag),
+    };
+
+    let summary = FeedSummary::new(&mut feed_body.reader()).unwrap();
+    let mut headers = HeaderMap::new();
+    if let Some(etag) = fetched_etag.and_then(|etag| HeaderValue::from_str(etag.as_ref()).ok()) {
+        headers.append("ETag", etag);
+    }
+    Ok(SummaryResponse::Success { headers, summary })
+}
+
+pub enum SummaryResponse {
+    NotModified,
+    Success {
+        headers: HeaderMap,
+        summary: FeedSummary,
+    },
+}
+
+impl IntoResponse for SummaryResponse {
+    fn into_response(self) -> Response<BoxBody> {
+        match self {
+            SummaryResponse::NotModified => StatusCode::NOT_MODIFIED.into_response(),
+            SummaryResponse::Success { headers, summary } => {
+                (headers, Json(summary)).into_response()
+            }
+        }
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum SummaryError {
+    #[error("failed to fetch feed")]
+    FetchError(#[from] FetchError),
+    #[error("failed to fetch feed")]
+    ParseError(#[from] SummarizeError),
+    #[error("unexpected internal error")]
+    UnknownError(#[from] std::io::Error),
+}
+
+impl IntoResponse for SummaryError {
+    fn into_response(self) -> Response<BoxBody> {
+        tracing::error!(?self);
+        let body = Body::from(self.to_string());
+        Response::builder()
+            .status(StatusCode::INTERNAL_SERVER_ERROR)
+            .body(boxed(body))
+            .expect("Failed to build error response")
+    }
 }

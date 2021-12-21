@@ -1,9 +1,9 @@
-use crate::{summarize::Item, CachedEntry};
+use crate::{summarize::SummaryItem, CachedEntry};
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 
 pub fn diff_feed(
-    item_map: &HashMap<&str, &Item>,
+    item_map: &HashMap<&str, &SummaryItem>,
     cached_map: &HashMap<&str, &CachedEntry>,
     feed_id: i64,
     now: DateTime<Utc>,
@@ -56,7 +56,7 @@ pub fn create_cached_entry_map(entries: &[CachedEntry]) -> HashMap<&str, &Cached
 #[cfg(test)]
 mod test {
     use super::create_cached_entry_map;
-    use crate::summarize::Item;
+    use crate::summarize::SummaryItem;
     use crate::test_helpers::{cached_entries, parse_dt};
     use crate::{diff_feed, FeedSummary};
     use std::collections::HashMap;
@@ -64,8 +64,9 @@ mod test {
     fn feed(items: Vec<(&str, &str)>) -> FeedSummary {
         let entries = items
             .into_iter()
-            .map(|(id, timestamp)| Item {
+            .map(|(id, timestamp)| SummaryItem {
                 id: id.to_string(),
+                title: id.to_string(),
                 timestamp: parse_dt(timestamp),
             })
             .collect();
