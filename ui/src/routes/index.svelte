@@ -1,11 +1,12 @@
 <script context="module" lang="ts">
   import { FeedSummary, fetchFeedSummary } from '../util/fetchFeedSummary';
+  import type { Load } from '@sveltejs/kit';
 
-  export async function load({ page, fetch }) {
+  export const load: Load = async ({ page, fetch }) => {
     const uri = page.query.get('uri');
     const feed = uri ? await fetchFeedSummary(uri, fetch) : null;
     return { props: { feed } };
-  }
+  };
 </script>
 
 <script lang="ts">
@@ -20,18 +21,19 @@
   const uri = $page.query.get('uri');
 
   // The first episode timestamp to include
-  let first = parseInt($page.query.get('first')) || feed?.items[0]?.timestamp;
-  let firstOptions = feed?.items.map((i) => ({
-    label: `${i.title} (originally ${format(i.timestamp * 1000, 'MMM do, y')})`,
-    value: i.timestamp,
-  }));
+  let first = parseInt($page.query.get('first') ?? '') || feed?.items[0]?.timestamp;
+  let firstOptions =
+    feed?.items.map((i) => ({
+      label: `${i.title} (originally ${format(i.timestamp * 1000, 'MMM do, y')})`,
+      value: i.timestamp,
+    })) ?? [];
   let firstText = firstOptions.find((o) => o.value === first)?.label ?? '';
   $: first = firstOptions.find((o) => o.label === firstText)?.value ?? feed?.items[0]?.timestamp;
 
   // The date to start the feed
   let start = Math.round(Date.now() / 1000);
 
-  let rate = parseInt($page.query.get('rate')) || 1;
+  let rate = parseInt($page.query.get('rate') ?? '') || 1;
 
   const updateUrl = debounce((name: string, value: unknown) => {
     if (value) {
