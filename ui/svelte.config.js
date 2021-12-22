@@ -10,6 +10,15 @@ const config = {
     // hydrate the <div id="svelte"> element in src/app.html
     target: '#svelte',
   },
+
+  vite: {
+    server: {
+      proxy: {
+        '/replay': 'http://localhost:3000',
+        '/summary': 'http://localhost:3000',
+      },
+    },
+  },
 };
 
 export default config;
