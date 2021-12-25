@@ -1,9 +1,14 @@
 [workspace]
 
 members = [
+    "server",
     "lib",
-    "server"
+    "lib_wasm"
 ]
 
 [profile.dev.package.backtrace]
 opt-level = 3
+
+[profile.release.podreplay_lib_wasm]
+# Tell `rustc` to optimize for small code size.
+opt-level = "s"

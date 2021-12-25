@@ -23,12 +23,14 @@
     "svelte": "^3.44.3",
     "svelte-check": "^2.2.11",
     "svelte-preprocess": "^4.10.1",
-    "typescript": "^4.5.4"
+    "typescript": "^4.5.4",
+    "vite-plugin-wasm-pack": "^0.1.9"
   },
   "type": "module",
   "dependencies": {
     "date-fns": "^2.27.0",
     "lodash": "^4.17.21",
+    "podreplay_lib_wasm": "link:../lib_wasm/pkg",
     "svelte-select": "^4.4.6",
     "tslib": "^2.3.1"
   }

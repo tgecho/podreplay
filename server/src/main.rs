@@ -21,7 +21,7 @@ async fn main() {
 
     let app = make_router(db, http);
 
-    Server::bind(&"0.0.0.0:3000".parse().expect("Invalid host/port string"))
+    Server::bind(&"0.0.0.0:3100".parse().expect("Invalid host/port string"))
         .serve(app.into_make_service())
         .await
         .expect("Failed to start server");

@@ -15,7 +15,14 @@
   import FeedForm from '../components/FeedForm.svelte';
   import { page } from '$app/stores';
   import { browser } from '$app/env';
+  import { reschedule } from '../util/reschedule';
   export let feed: FeedSummary | null = null;
+
+  $: {
+    if (feed) {
+      reschedule(feed).then(console.log);
+    }
+  }
 
   // The feed URI
   const uri = $page.query.get('uri') || '';

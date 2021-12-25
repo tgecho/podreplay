@@ -1,9 +1,11 @@
 use chrono::{DateTime, Utc};
 use diligent_date_parser::parse_date;
 use quick_xml::events::{BytesStart, Event};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, io::BufRead};
 use thiserror::Error;
+
+use crate::CachedEntry;
 
 #[derive(Debug)]
 struct PartialItem<'a> {
@@ -23,14 +25,14 @@ impl<'a> PartialItem<'a> {
     }
 }
 
-#[derive(PartialEq, Debug, Serialize)]
+#[derive(PartialEq, Debug, Serialize, Deserialize)]
 pub struct SummaryItem {
     pub id: String,
     pub title: String,
     pub timestamp: DateTime<Utc>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct FeedSummary {
     items: Vec<SummaryItem>,
 }
@@ -53,6 +55,18 @@ impl FeedSummary {
 
     pub fn id_map(&self) -> HashMap<&str, &SummaryItem> {
         self.items.iter().map(|e| (e.id.as_str(), e)).collect()
+    }
+
+    pub fn into_cached_items(self) -> Vec<CachedEntry> {
+        self.items
+            .into_iter()
+            .map(|i| CachedEntry {
+                id: i.id,
+                feed_id: 0,
+                noticed: i.timestamp,
+                published: Some(i.timestamp),
+            })
+            .collect()
     }
 }
 

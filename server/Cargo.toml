@@ -22,7 +22,7 @@ headers = "0.3.5"
 regex = "1.5.4"
 lazy_static = "1.4.0"
 tower = "0.4.11"
-tower-http = { version = "0.2.0", features = ["trace"] }
+tower-http = { version = "0.2.0", features = ["trace", "cors"] }
 color-eyre = "0.5.11"
 reqwest-tracing = "0.2.0"
 reqwest-middleware = "0.1.3"

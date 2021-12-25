@@ -10,7 +10,7 @@ use chrono::{DateTime, Utc};
 pub use diff::{create_cached_entry_map, diff_feed};
 pub use reschedule::{reschedule_feed, Reschedule};
 pub use rewrite::{rewrite_feed, RewriteError};
-pub use summarize::{FeedSummary, SummarizeError};
+pub use summarize::{FeedSummary, SummarizeError, SummaryItem};
 
 #[derive(Debug)]
 pub struct FeedMeta {
