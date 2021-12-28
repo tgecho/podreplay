@@ -1,26 +1,46 @@
-use crate::CachedEntry;
 use chrono::{DateTime, Utc};
 use chronoutil::DateRule;
-use std::collections::HashMap;
+use std::{collections::HashMap, hash::Hash, marker::PhantomData};
 
-pub type Reschedule = HashMap<String, DateTime<Utc>>;
+pub type Reschedule<K> = HashMap<K, DateTime<Utc>>;
 
-pub fn reschedule_feed(
-    items: &[CachedEntry],
+pub trait Key: Eq + Hash + Clone {}
+impl<T> Key for T where T: Eq + Hash + Clone {}
+
+pub trait Item<Id: Clone> {
+    fn id(&self) -> &Id;
+    fn published(&self) -> Option<DateTime<Utc>>;
+    fn noticed(&self) -> DateTime<Utc>;
+}
+
+pub fn reschedule_feed<K, I, Cutoff, FeedNoticed>(
+    items: &[I],
     rule: DateRule<DateTime<Utc>>,
     start: DateTime<Utc>,
-    now: DateTime<Utc>,
-    feed_noticed: DateTime<Utc>,
-) -> (Reschedule, Option<DateTime<Utc>>) {
-    let mut published_before_cutoff = items
-        .iter()
-        .filter(|item| item.published.map_or(false, |p| p <= now));
+    cutoff: Cutoff,
+    feed_noticed: FeedNoticed,
+) -> (Reschedule<K>, Option<DateTime<Utc>>)
+where
+    K: Key,
+    I: Item<K>,
+    Cutoff: Into<Option<DateTime<Utc>>>,
+    FeedNoticed: Into<Option<DateTime<Utc>>>,
+{
+    let cutoff = cutoff.into();
+    let feed_noticed = feed_noticed.into().unwrap_or(start);
+
+    let mut published_before_cutoff = items.iter().filter(move |item| {
+        item.published().map_or(false, |p| match cutoff {
+            Some(cutoff) => p <= cutoff,
+            None => true,
+        })
+    });
     let mut instances_by_id = create_instances_by_id(items);
     let mut delayed = DelayedItems::new();
     let mut results = HashMap::new();
 
     for slot in rule {
-        if slot >= now {
+        if matches!(cutoff, Some(cutoff) if slot >= cutoff) {
             return (results, Some(slot));
         }
         let some_slot = Some(slot);
@@ -29,12 +49,12 @@ pub fn reschedule_feed(
                 .pop_eligible(slot)
                 .or_else(|| published_before_cutoff.next());
             if let Some(item) = next_item {
-                if let Some(instances) = instances_by_id.get_mut(&item.id) {
+                if let Some(instances) = instances_by_id.get_mut(&item.id()) {
                     if instances.already_replayed {
                         continue; // try another item
                     }
-                    if item.published <= some_slot {
-                        if item.noticed > slot && start >= feed_noticed {
+                    if item.published() <= some_slot {
+                        if item.noticed() > slot && start >= feed_noticed {
                             delayed.add(item);
                             continue; // was published retroactively AFTER we replayed in this slot
                         }
@@ -49,15 +69,15 @@ pub fn reschedule_feed(
                                 break; // we've already replayed this item here, so we need to keep the slot empty
                             }
                             Unpublished::Never => {
-                                results.insert(item.id.clone(), slot);
+                                results.insert(item.id().clone(), slot);
                                 instances.already_replayed = true;
                                 break; // slot filled, move to the next
                             }
                         }
-                    } else if let Some(published) = item.published {
+                    } else if let Some(published) = item.published() {
                         // This was published after this slot, meaning we've apparently caught up.
                         // Keep replaying items at their original publication times.
-                        results.insert(item.id.clone(), published);
+                        results.insert(item.id().clone(), published);
                         instances.already_replayed = true;
                     }
                 }
@@ -71,21 +91,23 @@ pub fn reschedule_feed(
     (results, None)
 }
 
-fn create_instances_by_id(items: &[CachedEntry]) -> HashMap<&String, Scheduled> {
+fn create_instances_by_id<K: Key, I: Item<K>>(items: &[I]) -> HashMap<&K, Scheduled<K, I>> {
     let mut rescheduled = HashMap::new();
     for item in items.iter() {
-        let scheduled = rescheduled.entry(&item.id).or_insert(Scheduled {
+        let scheduled = rescheduled.entry(item.id()).or_insert(Scheduled {
             already_replayed: false,
             items: Vec::new(),
+            k: PhantomData,
         });
         scheduled.items.push(item);
     }
     rescheduled
 }
 
-struct Scheduled<'a> {
+struct Scheduled<'a, K: Key, I: Item<K>> {
     already_replayed: bool,
-    items: Vec<&'a CachedEntry>,
+    items: Vec<&'a I>,
+    k: PhantomData<K>,
 }
 
 enum Unpublished {
@@ -94,19 +116,21 @@ enum Unpublished {
     Never,
 }
 
-impl<'a> Scheduled<'a> {
-    fn rescheduled_before<'b>(&'a self, slot: DateTime<Utc>, item: &'b CachedEntry) -> bool {
+impl<'a, K: Key, I: Item<K>> Scheduled<'a, K, I> {
+    fn rescheduled_before<'b>(&'a self, slot: DateTime<Utc>, item: &'b I) -> bool {
         self.items.len() > 1
             && (self.items.iter()).any(|i| {
-                i.noticed <= slot && i.noticed >= item.noticed && i.published > item.published
+                i.noticed() <= slot
+                    && i.noticed() >= item.noticed()
+                    && i.published() > item.published()
             })
     }
 
     fn finally_unpublished(&self, slot: DateTime<Utc>) -> Unpublished {
-        let item = self.items.iter().max_by_key(|i| i.noticed);
+        let item = self.items.iter().max_by_key(|i| i.noticed());
         match item {
-            Some(item) if item.published.is_none() => {
-                if item.noticed > slot {
+            Some(item) if item.published().is_none() => {
+                if item.noticed() > slot {
                     Unpublished::AfterSlot
                 } else {
                     Unpublished::BeforeSlot
@@ -118,24 +142,31 @@ impl<'a> Scheduled<'a> {
 }
 
 #[derive(Debug)]
-struct DelayedItems<'a>(Vec<&'a CachedEntry>);
-impl<'a> DelayedItems<'a> {
+struct DelayedItems<'a, K: Key, I: Item<K>> {
+    items: Vec<&'a I>,
+    k: PhantomData<K>,
+}
+
+impl<'a, K: Key, I: Item<K>> DelayedItems<'a, K, I> {
     fn new() -> Self {
-        DelayedItems(Vec::new())
+        DelayedItems {
+            items: Vec::new(),
+            k: PhantomData,
+        }
     }
 
-    fn add<'b>(&'b mut self, item: &'a CachedEntry) {
-        self.0.push(item);
-        self.0.sort_by_key(|i| i.published);
+    fn add<'b>(&'b mut self, item: &'a I) {
+        self.items.push(item);
+        self.items.sort_by_key(|i| i.published());
     }
 
-    fn pop_eligible<'b>(&'b mut self, slot: DateTime<Utc>) -> Option<&'a CachedEntry> {
-        let delayed_index = self.0.iter().position(|i| i.noticed <= slot);
-        delayed_index.map(|index| self.0.remove(index))
+    fn pop_eligible<'b>(&'b mut self, slot: DateTime<Utc>) -> Option<&'a I> {
+        let delayed_index = self.items.iter().position(|i| i.noticed() <= slot);
+        delayed_index.map(|index| self.items.remove(index))
     }
 
     fn is_empty(&'a self) -> bool {
-        self.0.is_empty()
+        self.items.is_empty()
     }
 }
 
@@ -147,7 +178,7 @@ mod test {
     use crate::test_helpers::{cached_entries, parse_dt};
     use crate::{reschedule_feed, Reschedule};
 
-    fn replayed_items<'a>(items: Vec<(&'a str, &'a str)>) -> Reschedule {
+    fn replayed_items<'a>(items: Vec<(&'a str, &'a str)>) -> Reschedule<String> {
         items
             .into_iter()
             .map(|(id, dt_str)| (id.to_string(), parse_dt(dt_str)))

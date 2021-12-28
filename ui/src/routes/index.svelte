@@ -20,7 +20,7 @@
 
   $: {
     if (feed) {
-      reschedule(feed).then(console.log);
+      reschedule(feed.items).then(console.log);
     }
   }
 

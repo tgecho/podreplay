@@ -44,7 +44,7 @@ pub enum RewriteError {
 
 pub fn rewrite_feed<R: BufRead>(
     xml: R,
-    reschedule: &Reschedule,
+    reschedule: &Reschedule<String>,
     pretty: bool,
 ) -> Result<Vec<u8>, RewriteError> {
     let reader = quick_xml::Reader::from_reader(xml);
@@ -61,7 +61,7 @@ pub fn rewrite_feed<R: BufRead>(
 fn rewrite_feed_to_writer<R: BufRead, W: Write>(
     mut reader: quick_xml::Reader<R>,
     writer: quick_xml::Writer<W>,
-    reschedule: &Reschedule,
+    reschedule: &Reschedule<String>,
 ) -> Result<(), RewriteError> {
     let mut writer = Writer::new(writer);
     let mut buf = Vec::new();
@@ -93,7 +93,7 @@ fn rewrite_or_skip_item<B: BufRead, W: Write>(
     start: BytesStart,
     reader: &mut Reader<B>,
     writer: &mut Writer<W>,
-    reschedule: &Reschedule,
+    reschedule: &Reschedule<String>,
 ) -> Result<(), quick_xml::Error> {
     let item_tag = start.name();
     let mut buf = Vec::new();
@@ -199,7 +199,7 @@ mod tests {
     use super::rewrite_feed;
     use pretty_assertions::assert_eq;
 
-    fn parse_feed_to_str(xml: &str, reschedule: &Reschedule) -> String {
+    fn parse_feed_to_str(xml: &str, reschedule: &Reschedule<String>) -> String {
         let output = rewrite_feed(xml.as_bytes(), reschedule, true).unwrap();
         String::from_utf8(output).unwrap()
     }

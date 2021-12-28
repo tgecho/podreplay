@@ -88,8 +88,13 @@ pub async fn get<'a>(
 
     let rule = DateRule::weekly(query.start);
 
-    let (replayed, next_slot) =
-        reschedule_feed(&entries, rule, query.start, now, feed_meta.first_fetched);
+    let (replayed, next_slot) = reschedule_feed(
+        &entries,
+        rule,
+        query.start,
+        Some(now),
+        feed_meta.first_fetched,
+    );
 
     let body = rewrite_feed(&mut feed_reader, &replayed, true)?;
 
