@@ -34,7 +34,7 @@ impl Item<usize> for TinyItem {
 }
 
 #[wasm_bindgen]
-pub fn reschedule(timestamps: &[f64], start: f64, rule: &str) -> Vec<f64> {
+pub fn reschedule(timestamps: &[f64], start: f64, rule: &str, first: Option<f64>) -> Vec<f64> {
     #[cfg(debug_assertions)]
     utils::set_panic_hook();
 
@@ -49,8 +49,9 @@ pub fn reschedule(timestamps: &[f64], start: f64, rule: &str) -> Vec<f64> {
         .collect();
     let start = dt_from_unix_epoch(start);
     let rule = parse_rule(start, rule);
+    let first = first.map(dt_from_unix_epoch);
 
-    let (rescheduled, _) = reschedule_feed(&items, rule, start, None, None, None);
+    let (rescheduled, _) = reschedule_feed(&items, rule, start, None, None, first);
 
     (0..length)
         .into_iter()

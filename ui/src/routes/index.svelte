@@ -18,11 +18,7 @@
   import { reschedule } from '../util/reschedule';
   export let feed: FeedSummary | null = null;
 
-  $: {
-    if (feed) {
-      reschedule(feed.items).then(console.log);
-    }
-  }
+  $: rescheduled = feed ? reschedule(feed.items) : [];
 
   // The feed URI
   const uri = $page.query.get('uri') || '';
@@ -63,14 +59,16 @@
   </form> -->
 
   <table class="timeline">
-    {#each feed?.items as item}
-      <tr>
-        <th>{item.title}</th>
-        <td>{item.timestamp}</td>
-        <!-- <td>{format(item.timestamp, 'MMM do, y')}</td>
-        <td>{format(item.adjusted, 'MMM do, y')}</td> -->
-      </tr>
-    {/each}
+    {#await rescheduled then rescheduled}
+      {#each feed?.items as item, index}
+        <tr>
+          <th>{item.title}</th>
+          <!-- <td>{item.timestamp}</td> -->
+          <td>{format(new Date(item.timestamp), 'MMM do, y')}</td>
+          {#if rescheduled[index]}<td>{format(rescheduled[index], 'MMM do, y')}</td>{/if}
+        </tr>
+      {/each}
+    {/await}
   </table>
 {/if}
 

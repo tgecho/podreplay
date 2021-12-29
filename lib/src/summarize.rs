@@ -46,10 +46,13 @@ pub enum SummarizeError {
 impl FeedSummary {
     pub fn new<R: BufRead>(reader: &mut R) -> Result<Self, SummarizeError> {
         let reader = quick_xml::Reader::from_reader(reader);
-        summarize_feed(reader)
+        let items = summarize_feed(reader)?;
+        Ok(FeedSummary::from_items(items))
     }
 
-    pub fn from_items(items: Vec<SummaryItem>) -> Self {
+    pub fn from_items(mut items: Vec<SummaryItem>) -> Self {
+        items.reverse(); // we're most likely in reverse order
+        items.sort_unstable_by_key(|i| i.timestamp); // just to be safe
         FeedSummary { items }
     }
 
@@ -72,7 +75,7 @@ impl FeedSummary {
 
 pub fn summarize_feed<R: BufRead>(
     mut reader: quick_xml::Reader<R>,
-) -> Result<FeedSummary, SummarizeError> {
+) -> Result<Vec<SummaryItem>, SummarizeError> {
     let mut results: Vec<SummaryItem> = Vec::new();
     let mut buf: Vec<u8> = Vec::new();
     let mut partial_item: Option<PartialItem> = None;
@@ -138,7 +141,7 @@ pub fn summarize_feed<R: BufRead>(
         }
         buf.clear();
     }
-    Ok(FeedSummary::from_items(results))
+    Ok(results)
 }
 
 fn parse_timestamp(timestamp_str: String) -> Option<DateTime<Utc>> {
@@ -171,18 +174,18 @@ mod test {
         let output = FeedSummary::new(&mut Cursor::new(xml)).unwrap();
         let expected = vec![
             SummaryItem {
-                id: "http://scriptingnews.userland.com/backissues/2002/09/29#When:6:56:02PM"
-                    .to_string(),
-                title: "http://scriptingnews.userland.com/backissues/2002/09/29#When:6:56:02PM"
-                    .to_string(),
-                timestamp: parse_dt("2002-09-30T01:56:02"),
-            },
-            SummaryItem {
                 id: "http://scriptingnews.userland.com/backissues/2002/09/29#When:12:59:01PM"
                     .to_string(),
                 title: "http://scriptingnews.userland.com/backissues/2002/09/29#When:12:59:01PM"
                     .to_string(),
                 timestamp: parse_dt("2002-09-29T19:59:01"),
+            },
+            SummaryItem {
+                id: "http://scriptingnews.userland.com/backissues/2002/09/29#When:6:56:02PM"
+                    .to_string(),
+                title: "http://scriptingnews.userland.com/backissues/2002/09/29#When:6:56:02PM"
+                    .to_string(),
+                timestamp: parse_dt("2002-09-30T01:56:02"),
             },
         ];
         assert_eq!(output.items, expected);
