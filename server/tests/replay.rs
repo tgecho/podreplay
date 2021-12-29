@@ -33,7 +33,7 @@ async fn returns_200() {
     let app = test_app().await;
 
     let uri = format!(
-        "/replay?start=2021-10-23T01:09:00Z&now=2021-11-23T01:09:00Z&uri={}",
+        "/replay?rule=1w&start=2021-10-23T01:09:00Z&now=2021-11-23T01:09:00Z&uri={}",
         mock_uri
     );
     let response = get(app, &uri).await;
@@ -56,7 +56,8 @@ async fn returns_200() {
 async fn returns_304_if_expires_is_in_the_future() {
     let etag = "\"2022-10-23T01:09:00Z|opaquestring\"";
     let app = test_app().await;
-    let uri = "/replay?start=2021-10-23T01:09:00Z&now=2021-11-23T01:09:00Z&uri=/doesnotmatter";
+    let uri =
+        "/replay?rule=1w&start=2021-10-23T01:09:00Z&now=2021-11-23T01:09:00Z&uri=/doesnotmatter";
 
     let response = app
         .oneshot(
@@ -93,7 +94,7 @@ async fn returns_304_if_feed_returns_304() {
     let app = test_app().await;
 
     let uri = format!(
-        "/replay?start=2021-10-23T01:09:00Z&now=2021-10-23T01:09:00Z&uri={}",
+        "/replay?rule=1w&start=2021-10-23T01:09:00Z&now=2021-10-23T01:09:00Z&uri={}",
         mock_uri
     );
 

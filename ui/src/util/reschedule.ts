@@ -12,6 +12,7 @@ export async function reschedule(items: { timestamp: string }[]): Promise<(null 
   const rescheduled = await wasm.reschedule(
     timestamps,
     getUnixTime(new Date('2021-05-03T14:00:00Z')),
+    '1d',
   );
 
   const results = [];

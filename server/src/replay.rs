@@ -8,13 +8,12 @@ use axum::{
     response::IntoResponse,
 };
 use chrono::{DateTime, SecondsFormat, Utc};
-use chronoutil::DateRule;
 use headers::{HeaderMap, HeaderValue};
 use hyper::{Response, StatusCode};
 use lazy_static::lazy_static;
 use podreplay_lib::{
-    create_cached_entry_map, diff_feed, reschedule_feed, rewrite_feed, FeedSummary, RewriteError,
-    SummarizeError,
+    create_cached_entry_map, diff_feed, parse_rule, reschedule_feed, rewrite_feed, FeedSummary,
+    RewriteError, SummarizeError,
 };
 use regex::Regex;
 use serde::Deserialize;
@@ -28,6 +27,7 @@ use crate::{
 #[derive(Deserialize, Debug)]
 pub struct SummaryQuery {
     start: DateTime<Utc>,
+    rule: String,
     uri: String,
     #[cfg(test)]
     now: DateTime<Utc>,
@@ -86,7 +86,7 @@ pub async fn get<'a>(
     let (feed_meta, entries) =
         get_updated_caches(db, &query.uri, now, &fetched_etag, &summary).await?;
 
-    let rule = DateRule::weekly(query.start);
+    let rule = parse_rule(query.start, &query.rule);
 
     let (replayed, next_slot) = reschedule_feed(
         &entries,

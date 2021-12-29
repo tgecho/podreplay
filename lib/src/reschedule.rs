@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
-use chronoutil::DateRule;
 use std::{collections::HashMap, hash::Hash, marker::PhantomData};
+
+use crate::rule::RuleIter;
 
 pub type Reschedule<K> = HashMap<K, DateTime<Utc>>;
 
@@ -15,7 +16,7 @@ pub trait Item<Id: Clone> {
 
 pub fn reschedule_feed<K, I, Cutoff, FeedNoticed>(
     items: &[I],
-    rule: DateRule<DateTime<Utc>>,
+    rule: RuleIter,
     start: DateTime<Utc>,
     cutoff: Cutoff,
     feed_noticed: FeedNoticed,
@@ -172,11 +173,10 @@ impl<'a, K: Key, I: Item<K>> DelayedItems<'a, K, I> {
 
 #[cfg(test)]
 mod test {
-    use chronoutil::DateRule;
     use std::collections::HashMap;
 
     use crate::test_helpers::{cached_entries, parse_dt};
-    use crate::{reschedule_feed, Reschedule};
+    use crate::{parse_rule, reschedule_feed, Reschedule};
 
     fn replayed_items<'a>(items: Vec<(&'a str, &'a str)>) -> Reschedule<String> {
         items
@@ -190,7 +190,7 @@ mod test {
         let items = cached_entries(1, vec![]);
         let result = reschedule_feed(
             &items,
-            DateRule::daily(parse_dt("2014-11-28T21:00:00")),
+            parse_rule(parse_dt("2014-11-28T21:00:00"), "1d"),
             parse_dt("2014-11-28T21:00:00"),
             parse_dt("2014-12-28T21:00:00"),
             parse_dt("2014-12-28T21:00:00"),
@@ -203,7 +203,7 @@ mod test {
         let items = cached_entries(1, vec![("1", "2013-10-10T21:00:00", "pub")]);
         let result = reschedule_feed(
             &items,
-            DateRule::daily(parse_dt("2014-11-28T21:00:00")),
+            parse_rule(parse_dt("2014-11-28T21:00:00"), "1d"),
             parse_dt("2014-11-28T21:00:00"),
             parse_dt("2014-12-28T21:00:00"),
             parse_dt("2014-12-28T21:00:00"),
@@ -225,7 +225,7 @@ mod test {
         );
         let result = reschedule_feed(
             &items,
-            DateRule::daily(parse_dt("2014-11-28T21:00:00")),
+            parse_rule(parse_dt("2014-11-28T21:00:00"), "1d"),
             parse_dt("2014-11-28T21:00:00"),
             parse_dt("2014-12-28T21:00:00"),
             parse_dt("2014-12-28T21:00:00"),
@@ -253,7 +253,7 @@ mod test {
         );
         let result = reschedule_feed(
             &items,
-            DateRule::weekly(parse_dt("2014-11-28T21:00:00")),
+            parse_rule(parse_dt("2014-11-28T21:00:00"), "1w"),
             parse_dt("2014-11-28T21:00:00"),
             parse_dt("2014-11-28T22:00:00"),
             parse_dt("2014-11-28T22:00:00"),
@@ -280,7 +280,7 @@ mod test {
         );
         let result = reschedule_feed(
             &items,
-            DateRule::daily(parse_dt("2014-11-03T20:00:00")),
+            parse_rule(parse_dt("2014-11-03T20:00:00"), "1d"),
             parse_dt("2014-11-03T20:00:00"),
             parse_dt("2014-11-12T22:00:00"),
             parse_dt("2014-11-12T22:00:00"),
@@ -309,7 +309,7 @@ mod test {
         );
         let result = reschedule_feed(
             &items,
-            DateRule::daily(parse_dt("2014-11-03T20:00:00")),
+            parse_rule(parse_dt("2014-11-03T20:00:00"), "1d"),
             parse_dt("2014-11-03T20:00:00"),
             parse_dt("2014-11-12T22:00:00"),
             parse_dt("2014-11-12T22:00:00"),
@@ -332,7 +332,7 @@ mod test {
         );
         let result = reschedule_feed(
             &items,
-            DateRule::daily(parse_dt("2014-11-06T20:00:00")),
+            parse_rule(parse_dt("2014-11-06T20:00:00"), "1d"),
             parse_dt("2014-11-06T20:00:00"),
             parse_dt("2014-12-12T22:00:00"),
             parse_dt("2014-12-12T22:00:00"),
@@ -361,7 +361,7 @@ mod test {
         );
         let result = reschedule_feed(
             &items,
-            DateRule::daily(parse_dt("2014-11-03T20:00:00")),
+            parse_rule(parse_dt("2014-11-03T20:00:00"), "1d"),
             parse_dt("2014-11-03T20:00:00"),
             parse_dt("2014-12-12T22:00:00"),
             parse_dt("2014-12-12T22:00:00"),
@@ -390,7 +390,7 @@ mod test {
         );
         let result = reschedule_feed(
             &items,
-            DateRule::daily(parse_dt("2014-11-06T20:00:00")),
+            parse_rule(parse_dt("2014-11-06T20:00:00"), "1d"),
             parse_dt("2014-11-06T20:00:00"),
             parse_dt("2014-12-12T22:00:00"),
             parse_dt("2014-12-12T22:00:00"),
@@ -419,7 +419,7 @@ mod test {
         );
         let result = reschedule_feed(
             &items,
-            DateRule::daily(parse_dt("2014-11-09T20:00:00")),
+            parse_rule(parse_dt("2014-11-09T20:00:00"), "1d"),
             parse_dt("2014-11-09T20:00:00"),
             parse_dt("2014-12-12T22:00:00"),
             parse_dt("2014-12-12T22:00:00"),
@@ -448,7 +448,7 @@ mod test {
         );
         let result = reschedule_feed(
             &items,
-            DateRule::daily(parse_dt("2014-11-06T10:00:00")),
+            parse_rule(parse_dt("2014-11-06T10:00:00"), "1d"),
             parse_dt("2014-11-06T10:00:00"),
             parse_dt("2014-12-12T22:00:00"),
             parse_dt("2014-11-02T09:00:00"),
@@ -476,7 +476,7 @@ mod test {
         );
         let result = reschedule_feed(
             &items,
-            DateRule::daily(parse_dt("2014-11-06T10:00:00")),
+            parse_rule(parse_dt("2014-11-06T10:00:00"), "1d"),
             parse_dt("2014-11-06T10:00:00"),
             parse_dt("2014-12-12T22:00:00"),
             parse_dt("2014-12-12T22:00:00"),
@@ -504,7 +504,7 @@ mod test {
         );
         let result = reschedule_feed(
             &items,
-            DateRule::daily(parse_dt("2014-11-10T20:00:00")),
+            parse_rule(parse_dt("2014-11-10T20:00:00"), "1d"),
             parse_dt("2014-11-10T20:00:00"),
             parse_dt("2014-12-12T22:00:00"),
             parse_dt("2014-11-02T09:00:00"),
@@ -536,7 +536,7 @@ mod test {
         );
         let result = reschedule_feed(
             &items,
-            DateRule::daily(parse_dt("2014-11-10T10:00:00")),
+            parse_rule(parse_dt("2014-11-10T10:00:00"), "1d"),
             parse_dt("2014-11-10T10:00:00"),
             parse_dt("2014-12-12T22:00:00"),
             parse_dt("2014-11-02T09:00:00"),
@@ -568,7 +568,7 @@ mod test {
         );
         let result = reschedule_feed(
             &items,
-            DateRule::daily(parse_dt("2014-11-10T10:00:00")),
+            parse_rule(parse_dt("2014-11-10T10:00:00"), "1d"),
             parse_dt("2014-11-10T10:00:00"),
             parse_dt("2014-12-12T22:00:00"),
             parse_dt("2014-12-12T22:00:00"),
@@ -599,7 +599,7 @@ mod test {
         );
         let result = reschedule_feed(
             &items,
-            DateRule::daily(parse_dt("2014-11-12T10:00:00")),
+            parse_rule(parse_dt("2014-11-12T10:00:00"), "1d"),
             parse_dt("2014-11-12T10:00:00"),
             parse_dt("2014-12-12T22:00:00"),
             parse_dt("2014-12-12T22:00:00"),
@@ -629,7 +629,7 @@ mod test {
         );
         let result = reschedule_feed(
             &items,
-            DateRule::daily(parse_dt("2014-11-04T10:00:00")),
+            parse_rule(parse_dt("2014-11-04T10:00:00"), "1d"),
             parse_dt("2014-11-04T10:00:00"),
             parse_dt("2014-12-12T22:00:00"),
             parse_dt("2014-12-20T10:00:00"),

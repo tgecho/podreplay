@@ -1,6 +1,7 @@
 mod diff;
 mod reschedule;
 mod rewrite;
+mod rule;
 mod summarize;
 
 #[cfg(test)]
@@ -10,6 +11,7 @@ use chrono::{DateTime, Utc};
 pub use diff::{create_cached_entry_map, diff_feed};
 pub use reschedule::{reschedule_feed, Item, Reschedule};
 pub use rewrite::{rewrite_feed, RewriteError};
+pub use rule::{parse_rule, RuleIter};
 pub use summarize::{FeedSummary, SummarizeError, SummaryItem};
 
 #[derive(Debug)]

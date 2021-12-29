@@ -1,8 +1,7 @@
 mod utils;
 
-use chrono::{DateTime, Utc};
-use chronoutil::DateRule;
-use podreplay_lib::{reschedule_feed, Item};
+use chrono::{DateTime, TimeZone, Utc};
+use podreplay_lib::{parse_rule, reschedule_feed, Item};
 use wasm_bindgen::prelude::*;
 
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
@@ -11,10 +10,8 @@ use wasm_bindgen::prelude::*;
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
-use std::time::{Duration, UNIX_EPOCH};
-
 fn dt_from_unix_epoch(seconds: f64) -> DateTime<Utc> {
-    (UNIX_EPOCH + Duration::from_secs_f64(seconds)).into()
+    Utc.timestamp(seconds as i64, 0)
 }
 
 struct TinyItem {
@@ -37,11 +34,7 @@ impl Item<usize> for TinyItem {
 }
 
 #[wasm_bindgen]
-pub fn reschedule(
-    timestamps: &[f64],
-    // rule: &str,
-    start: f64,
-) -> Vec<f64> {
+pub fn reschedule(timestamps: &[f64], start: f64, rule: &str) -> Vec<f64> {
     #[cfg(debug_assertions)]
     utils::set_panic_hook();
 
@@ -55,9 +48,7 @@ pub fn reschedule(
         })
         .collect();
     let start = dt_from_unix_epoch(start);
-
-    // TODO: don't hardcode this (we need to add a way to configure this on the /replay endpoint as well)
-    let rule = DateRule::weekly(start);
+    let rule = parse_rule(start, rule);
 
     let (rescheduled, _) = reschedule_feed(&items, rule, start, None, None);
 
