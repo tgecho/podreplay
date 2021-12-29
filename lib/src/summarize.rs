@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use diligent_date_parser::parse_date;
+use kuchiki::{parse_html, traits::TendrilSink};
 use quick_xml::events::{BytesStart, Event};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, io::BufRead};
@@ -18,7 +19,7 @@ struct PartialItem<'a> {
 impl<'a> PartialItem<'a> {
     fn complete(self) -> Option<SummaryItem> {
         Some(SummaryItem {
-            title: self.title.or_else(|| self.id.clone())?,
+            title: self.title?,
             id: self.id?,
             timestamp: self.timestamp?,
         })
@@ -108,6 +109,22 @@ pub fn summarize_feed<R: BufRead>(
                         }
                     }
                 }
+                b"description" => {
+                    if let Some(item) = &mut partial_item {
+                        if item.title.is_none() {
+                            let name = start.name().to_owned();
+                            if let Ok(description) = reader.read_text(name, &mut buf) {
+                                let text = html_to_text(&description);
+                                let title = if text.len() > 100 {
+                                    format!("{}...", text.chars().take(90).collect::<String>())
+                                } else {
+                                    text
+                                };
+                                item.title = Some(title);
+                            }
+                        }
+                    }
+                }
                 b"pubDate" | b"updated" => {
                     if let Some(item) = &mut partial_item {
                         let name = start.name().to_owned();
@@ -148,6 +165,11 @@ fn parse_timestamp(timestamp_str: String) -> Option<DateTime<Utc>> {
     parse_date(&timestamp_str).map(|ts| ts.into())
 }
 
+fn html_to_text(html: &str) -> String {
+    let node = parse_html().one(html);
+    node.text_contents()
+}
+
 #[cfg(test)]
 mod test {
     use std::io::Cursor;
@@ -176,14 +198,13 @@ mod test {
             SummaryItem {
                 id: "http://scriptingnews.userland.com/backissues/2002/09/29#When:12:59:01PM"
                     .to_string(),
-                title: "http://scriptingnews.userland.com/backissues/2002/09/29#When:12:59:01PM"
-                    .to_string(),
+                title: "Joshua Allen: Who loves namespaces?".to_string(),
                 timestamp: parse_dt("2002-09-29T19:59:01"),
             },
             SummaryItem {
                 id: "http://scriptingnews.userland.com/backissues/2002/09/29#When:6:56:02PM"
                     .to_string(),
-                title: "http://scriptingnews.userland.com/backissues/2002/09/29#When:6:56:02PM"
+                title: "With any luck we should have one or two more days of namespaces stuff here on Scripting Ne..."
                     .to_string(),
                 timestamp: parse_dt("2002-09-30T01:56:02"),
             },

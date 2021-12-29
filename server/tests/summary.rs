@@ -45,12 +45,12 @@ async fn returns_200() {
             {
                 "id": "http://scriptingnews.userland.com/backissues/2002/09/29#When:12:59:01PM",
                 "timestamp": "2002-09-29T19:59:01Z",
-                "title": "http://scriptingnews.userland.com/backissues/2002/09/29#When:12:59:01PM",
+                "title": "Joshua Allen: Who loves namespaces?",
             },
             {
                 "id": "http://scriptingnews.userland.com/backissues/2002/09/29#When:6:56:02PM",
                 "timestamp": "2002-09-30T01:56:02Z",
-                "title": "http://scriptingnews.userland.com/backissues/2002/09/29#When:6:56:02PM",
+                "title": "With any luck we should have one or two more days of namespaces stuff here on Scripting Ne...",
             },
         ]
     });
