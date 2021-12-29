@@ -1186,6 +1186,7 @@ checksum = "58893f751c9b0412871a09abd62ecd2a00298c6c83befa223ef98c52aef40cbe"
 name = "podreplay"
 version = "0.1.0"
 dependencies = [
+ "assert-json-diff",
  "axum",
  "chrono",
  "chronoutil",
@@ -1201,6 +1202,7 @@ dependencies = [
  "reqwest-middleware",
  "reqwest-tracing",
  "serde",
+ "serde_json",
  "sqlx",
  "thiserror",
  "tokio",
