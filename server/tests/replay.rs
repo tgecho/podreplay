@@ -37,8 +37,7 @@ async fn returns_200() {
         mock_uri
     );
     let response = get(app, &uri).await;
-
-    assert_eq!(response.status(), StatusCode::OK);
+    let status = response.status();
 
     let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
 
@@ -47,6 +46,7 @@ async fn returns_200() {
         "        <updated>2021-10-23T01:09:00Z</updated>",
     );
     assert_eq!(expected, body);
+    assert_eq!(status, StatusCode::OK);
 
     mock.assert();
 }

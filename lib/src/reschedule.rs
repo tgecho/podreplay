@@ -14,27 +14,32 @@ pub trait Item<Id: Clone> {
     fn noticed(&self) -> DateTime<Utc>;
 }
 
-pub fn reschedule_feed<K, I, Cutoff, FeedNoticed>(
+pub fn reschedule_feed<K, I, Cutoff, FeedNoticed, FirstItem>(
     items: &[I],
     rule: RuleIter,
     start: DateTime<Utc>,
     cutoff: Cutoff,
     feed_noticed: FeedNoticed,
+    first_item: FirstItem,
 ) -> (Reschedule<K>, Option<DateTime<Utc>>)
 where
     K: Key,
     I: Item<K>,
     Cutoff: Into<Option<DateTime<Utc>>>,
     FeedNoticed: Into<Option<DateTime<Utc>>>,
+    FirstItem: Into<Option<DateTime<Utc>>>,
 {
     let cutoff = cutoff.into();
     let feed_noticed = feed_noticed.into().unwrap_or(start);
+    let first_item = first_item.into();
 
-    let mut published_before_cutoff = items.iter().filter(move |item| {
-        item.published().map_or(false, |p| match cutoff {
-            Some(cutoff) => p <= cutoff,
-            None => true,
-        })
+    let mut item_iter = items.iter().filter(move |item| {
+        if let Some(published) = item.published() {
+            cutoff.map_or(true, |cutoff| published <= cutoff)
+                && first_item.map_or(true, |first| published >= first)
+        } else {
+            false
+        }
     });
     let mut instances_by_id = create_instances_by_id(items);
     let mut delayed = DelayedItems::new();
@@ -46,9 +51,7 @@ where
         }
         let some_slot = Some(slot);
         loop {
-            let next_item = delayed
-                .pop_eligible(slot)
-                .or_else(|| published_before_cutoff.next());
+            let next_item = delayed.pop_eligible(slot).or_else(|| item_iter.next());
             if let Some(item) = next_item {
                 if let Some(instances) = instances_by_id.get_mut(&item.id()) {
                     if instances.already_replayed {
@@ -194,6 +197,7 @@ mod test {
             parse_dt("2014-11-28T21:00:00"),
             parse_dt("2014-12-28T21:00:00"),
             parse_dt("2014-12-28T21:00:00"),
+            None,
         );
         assert_eq!(result, (HashMap::new(), None));
     }
@@ -207,6 +211,7 @@ mod test {
             parse_dt("2014-11-28T21:00:00"),
             parse_dt("2014-12-28T21:00:00"),
             parse_dt("2014-12-28T21:00:00"),
+            None,
         );
         assert_eq!(
             result,
@@ -229,6 +234,7 @@ mod test {
             parse_dt("2014-11-28T21:00:00"),
             parse_dt("2014-12-28T21:00:00"),
             parse_dt("2014-12-28T21:00:00"),
+            None,
         );
         assert_eq!(
             result,
@@ -257,6 +263,7 @@ mod test {
             parse_dt("2014-11-28T21:00:00"),
             parse_dt("2014-11-28T22:00:00"),
             parse_dt("2014-11-28T22:00:00"),
+            None,
         );
         assert_eq!(
             result,
@@ -284,6 +291,7 @@ mod test {
             parse_dt("2014-11-03T20:00:00"),
             parse_dt("2014-11-12T22:00:00"),
             parse_dt("2014-11-12T22:00:00"),
+            None,
         );
         assert_eq!(
             result,
@@ -313,6 +321,7 @@ mod test {
             parse_dt("2014-11-03T20:00:00"),
             parse_dt("2014-11-12T22:00:00"),
             parse_dt("2014-11-12T22:00:00"),
+            None,
         );
         assert_eq!(
             result,
@@ -336,6 +345,7 @@ mod test {
             parse_dt("2014-11-06T20:00:00"),
             parse_dt("2014-12-12T22:00:00"),
             parse_dt("2014-12-12T22:00:00"),
+            None,
         );
         assert_eq!(
             result,
@@ -365,6 +375,7 @@ mod test {
             parse_dt("2014-11-03T20:00:00"),
             parse_dt("2014-12-12T22:00:00"),
             parse_dt("2014-12-12T22:00:00"),
+            None,
         );
         assert_eq!(
             result,
@@ -394,6 +405,7 @@ mod test {
             parse_dt("2014-11-06T20:00:00"),
             parse_dt("2014-12-12T22:00:00"),
             parse_dt("2014-12-12T22:00:00"),
+            None,
         );
         assert_eq!(
             result,
@@ -423,6 +435,7 @@ mod test {
             parse_dt("2014-11-09T20:00:00"),
             parse_dt("2014-12-12T22:00:00"),
             parse_dt("2014-12-12T22:00:00"),
+            None,
         );
         assert_eq!(
             result,
@@ -452,6 +465,7 @@ mod test {
             parse_dt("2014-11-06T10:00:00"),
             parse_dt("2014-12-12T22:00:00"),
             parse_dt("2014-11-02T09:00:00"),
+            None,
         );
         assert_eq!(
             result,
@@ -480,6 +494,7 @@ mod test {
             parse_dt("2014-11-06T10:00:00"),
             parse_dt("2014-12-12T22:00:00"),
             parse_dt("2014-12-12T22:00:00"),
+            None,
         );
         assert_eq!(
             result,
@@ -508,6 +523,7 @@ mod test {
             parse_dt("2014-11-10T20:00:00"),
             parse_dt("2014-12-12T22:00:00"),
             parse_dt("2014-11-02T09:00:00"),
+            None,
         );
         assert_eq!(
             result,
@@ -540,6 +556,7 @@ mod test {
             parse_dt("2014-11-10T10:00:00"),
             parse_dt("2014-12-12T22:00:00"),
             parse_dt("2014-11-02T09:00:00"),
+            None,
         );
         assert_eq!(
             result,
@@ -572,6 +589,7 @@ mod test {
             parse_dt("2014-11-10T10:00:00"),
             parse_dt("2014-12-12T22:00:00"),
             parse_dt("2014-12-12T22:00:00"),
+            None,
         );
         assert_eq!(
             result,
@@ -603,6 +621,7 @@ mod test {
             parse_dt("2014-11-12T10:00:00"),
             parse_dt("2014-12-12T22:00:00"),
             parse_dt("2014-12-12T22:00:00"),
+            None,
         );
         assert_eq!(
             result,
@@ -633,6 +652,7 @@ mod test {
             parse_dt("2014-11-04T10:00:00"),
             parse_dt("2014-12-12T22:00:00"),
             parse_dt("2014-12-20T10:00:00"),
+            None,
         );
         assert_eq!(
             result,
@@ -641,6 +661,36 @@ mod test {
                     ("1", "2014-11-04T10:00:00"),
                     ("2", "2014-11-05T10:00:00"),
                     ("3", "2014-11-06T21:00:00"),
+                ]),
+                None
+            )
+        );
+    }
+
+    #[test]
+    fn items_published_before_first_are_skipped() {
+        let items = cached_entries(
+            1,
+            vec![
+                ("1", "2013-10-10T21:00:00", "pub"),
+                ("2", "2013-11-10T21:00:00", "pub"),
+                ("3", "2013-12-10T21:00:00", "pub"),
+            ],
+        );
+        let result = reschedule_feed(
+            &items,
+            parse_rule(parse_dt("2014-11-28T21:00:00"), "1d"),
+            parse_dt("2014-11-28T21:00:00"),
+            parse_dt("2014-12-28T21:00:00"),
+            parse_dt("2014-12-28T21:00:00"),
+            parse_dt("2013-11-10T21:00:00"),
+        );
+        assert_eq!(
+            result,
+            (
+                replayed_items(vec![
+                    ("2", "2014-11-28T21:00:00"),
+                    ("3", "2014-11-29T21:00:00")
                 ]),
                 None
             )

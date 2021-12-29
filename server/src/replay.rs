@@ -27,6 +27,7 @@ use crate::{
 #[derive(Deserialize, Debug)]
 pub struct SummaryQuery {
     start: DateTime<Utc>,
+    first: Option<DateTime<Utc>>,
     rule: String,
     uri: String,
     #[cfg(test)]
@@ -94,6 +95,7 @@ pub async fn get<'a>(
         query.start,
         Some(now),
         feed_meta.first_fetched,
+        query.first,
     );
 
     let body = rewrite_feed(&mut feed_reader, &replayed, true)?;

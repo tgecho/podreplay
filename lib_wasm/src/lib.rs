@@ -50,7 +50,7 @@ pub fn reschedule(timestamps: &[f64], start: f64, rule: &str) -> Vec<f64> {
     let start = dt_from_unix_epoch(start);
     let rule = parse_rule(start, rule);
 
-    let (rescheduled, _) = reschedule_feed(&items, rule, start, None, None);
+    let (rescheduled, _) = reschedule_feed(&items, rule, start, None, None, None);
 
     (0..length)
         .into_iter()
