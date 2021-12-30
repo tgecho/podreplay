@@ -70,7 +70,7 @@ mod test {
                 timestamp: parse_dt(timestamp),
             })
             .collect();
-        FeedSummary::from_items("testing".into(), entries)
+        FeedSummary::from_items("testing".into(), Some("testing".into()), entries)
     }
 
     #[test]

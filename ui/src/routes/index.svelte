@@ -38,8 +38,10 @@
 <FeedForm {uri} />
 
 {#if feed}
-  <b>Feed Title:</b>
+  <br /><b>Title:</b>
   {feed.title}
+  <br /><b>URI:</b>
+  {feed.uri}
 
   <!-- <form target="">
     I want to start with

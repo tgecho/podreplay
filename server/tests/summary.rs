@@ -42,6 +42,7 @@ async fn returns_200() {
     let actual: serde_json::Value = from_slice(&body).unwrap();
     let expected = json!({
         "uri": mock_uri,
+        "title": "Scripting News",
         "items": [
             {
                 "id": "http://scriptingnews.userland.com/backissues/2002/09/29#When:12:59:01PM",
@@ -94,11 +95,10 @@ async fn follows_link_meta_in_html() {
     let status = response.status();
 
     let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
-    dbg!(&body);
     let actual: serde_json::Value = from_slice(&body).unwrap();
     let expected = json!({
         "uri": mock_xml_uri,
-        // "title": "TODO",
+        "title": "Scripting News",
         "items": [
             {
                 "id": "http://scriptingnews.userland.com/backissues/2002/09/29#When:12:59:01PM",

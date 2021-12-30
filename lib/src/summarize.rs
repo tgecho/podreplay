@@ -37,6 +37,7 @@ pub struct SummaryItem {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FeedSummary {
     uri: String,
+    title: String,
     items: Vec<SummaryItem>,
 }
 
@@ -51,14 +52,18 @@ pub enum SummarizeError {
 impl FeedSummary {
     pub fn new<R: BufRead>(uri: String, reader: &mut R) -> Result<Self, SummarizeError> {
         let reader = quick_xml::Reader::from_reader(reader);
-        let items = summarize_feed(reader)?;
-        Ok(FeedSummary::from_items(uri, items))
+        let (items, title) = summarize_feed(reader)?;
+        Ok(FeedSummary::from_items(uri, title, items))
     }
 
-    pub fn from_items(uri: String, mut items: Vec<SummaryItem>) -> Self {
+    pub fn from_items(uri: String, title: Option<String>, mut items: Vec<SummaryItem>) -> Self {
         items.reverse(); // we're most likely in reverse order
         items.sort_unstable_by_key(|i| i.timestamp); // just to be safe
-        FeedSummary { uri, items }
+        FeedSummary {
+            uri,
+            title: title.unwrap_or_default(),
+            items,
+        }
     }
 
     pub fn id_map(&self) -> HashMap<&str, &SummaryItem> {
@@ -84,11 +89,12 @@ impl FeedSummary {
 
 pub fn summarize_feed<R: BufRead>(
     mut reader: quick_xml::Reader<R>,
-) -> Result<Vec<SummaryItem>, SummarizeError> {
+) -> Result<(Vec<SummaryItem>, Option<String>), SummarizeError> {
     let mut results: Vec<SummaryItem> = Vec::new();
     let mut buf: Vec<u8> = Vec::new();
     let mut partial_item: Option<PartialItem> = None;
     let mut xml_decl_found = false;
+    let mut feed_title = None;
 
     loop {
         match reader.read_event(&mut buf) {
@@ -114,10 +120,12 @@ pub fn summarize_feed<R: BufRead>(
                     }
                 }
                 b"title" => {
-                    if let Some(item) = &mut partial_item {
-                        let name = start.name().to_owned();
-                        if let Ok(title) = reader.read_text(name, &mut buf) {
+                    let name = start.name().to_owned();
+                    if let Ok(title) = reader.read_text(name, &mut buf) {
+                        if let Some(item) = &mut partial_item {
                             item.title = Some(title);
+                        } else {
+                            feed_title = Some(title);
                         }
                     }
                 }
@@ -173,7 +181,7 @@ pub fn summarize_feed<R: BufRead>(
     if results.is_empty() && !xml_decl_found {
         Err(SummarizeError::NotAFeed)
     } else {
-        Ok(results)
+        Ok((results, feed_title))
     }
 }
 
