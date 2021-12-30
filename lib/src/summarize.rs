@@ -5,6 +5,7 @@ use quick_xml::events::{BytesStart, Event};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, io::BufRead};
 use thiserror::Error;
+use url::Url;
 
 use crate::CachedEntry;
 
@@ -185,21 +186,43 @@ fn html_to_text(html: &str) -> String {
     node.text_contents()
 }
 
-pub fn find_feed_links<R: BufRead>(reader: &mut R, origin: &str) -> Option<Vec<String>> {
-    let doc = parse_html().from_utf8().read_from(reader).ok()?;
-    Some(
-        doc.select("link[rel=\"alternate\"]")
-            .ok()?
-            .filter_map(|el| {
-                let attr = el.attributes.borrow();
-                if attr.get("type") == Some("application/rss+xml") {
-                    attr.get("href").map(|href| href.to_string())
-                } else {
-                    None
-                }
-            })
-            .collect(),
-    )
+pub fn find_feed_links<R: BufRead>(reader: &mut R, origin: &str) -> Vec<String> {
+    parse_html()
+        .from_utf8()
+        .read_from(reader)
+        .ok()
+        .and_then(|doc| {
+            let base_url = doc
+                .select_first("base")
+                .ok()
+                .and_then(|base| {
+                    let attr = base.attributes.borrow();
+                    let href = attr.get("href")?;
+                    Url::parse(href).ok()
+                })
+                .or_else(|| Url::parse(origin).ok());
+            let base = Url::options().base_url(base_url.as_ref());
+            Some(
+                doc.select("link[rel=\"alternate\"]")
+                    .ok()?
+                    .filter_map(|el| {
+                        let attr = el.attributes.borrow();
+                        let is_a_feed = attr.get("type").map_or(false, |t| {
+                            t == "application/rss+xml" || t == "application/atom+xml"
+                        });
+                        if is_a_feed {
+                            attr.get("href").and_then(|href| {
+                                let url = base.parse(href).ok()?;
+                                Some(url.to_string())
+                            })
+                        } else {
+                            None
+                        }
+                    })
+                    .collect(),
+            )
+        })
+        .unwrap_or_default()
 }
 
 #[cfg(test)]
@@ -242,5 +265,48 @@ mod test {
             },
         ];
         assert_eq!(output.items, expected);
+    }
+
+    mod feed_links {
+        use crate::find_feed_links;
+        use std::io::Cursor;
+
+        #[test]
+        fn test_empty() {
+            let actual = find_feed_links(&mut Cursor::new("".to_string()), "");
+            let expected: Vec<String> = Vec::new();
+            assert_eq!(actual, expected);
+        }
+
+        #[test]
+        fn test_absolute() {
+            let html = r#"
+                <link rel="alternate" type="application/rss+xml" href="http://example.com/feed">
+            "#;
+            let actual = find_feed_links(&mut Cursor::new(html.to_string()), "http://example.com");
+            let expected: Vec<String> = vec!["http://example.com/feed".to_string()];
+            assert_eq!(actual, expected);
+        }
+
+        #[test]
+        fn test_relative_with_origin() {
+            let html = r#"
+                <link rel="alternate" type="application/rss+xml" href="/feed">
+            "#;
+            let actual = find_feed_links(&mut Cursor::new(html.to_string()), "http://example.com");
+            let expected: Vec<String> = vec!["http://example.com/feed".to_string()];
+            assert_eq!(actual, expected);
+        }
+
+        #[test]
+        fn test_relative_with_base() {
+            let html = r#"
+                <base href="http://example.org/">
+                <link rel="alternate" type="application/atom+xml" href="/feed">
+            "#;
+            let actual = find_feed_links(&mut Cursor::new(html.to_string()), "http://example.com");
+            let expected: Vec<String> = vec!["http://example.org/feed".to_string()];
+            assert_eq!(actual, expected);
+        }
     }
 }

@@ -1,4 +1,4 @@
-use std::io::{BufRead, Cursor, Read, Seek};
+use std::io::{BufRead, Cursor, Seek};
 
 use crate::fetch::{FetchError, FetchResponse, HttpClient};
 use axum::{
@@ -41,7 +41,7 @@ pub async fn get(
     let mut reader = Cursor::new(feed_body);
     let summary = match FeedSummary::new(query.uri.clone(), &mut reader) {
         Ok(summary) => summary,
-        Err(err) => {
+        Err(_) => {
             reader.rewind()?;
             attempt_autodiscovery(&mut reader, &query.uri, http).await?
         }
@@ -58,7 +58,7 @@ async fn attempt_autodiscovery<R: BufRead>(
     origin: &str,
     http: HttpClient,
 ) -> Result<FeedSummary, SummarizeError> {
-    for uri in find_feed_links(reader, origin).ok_or(SummarizeError::NotAFeed)? {
+    for uri in find_feed_links(reader, origin) {
         if let Ok(FetchResponse::Fetched(body, _)) = http.get_feed(&uri, None).await {
             let mut reader = body.reader();
             let summary = FeedSummary::new(uri, &mut reader);

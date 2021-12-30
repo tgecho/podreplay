@@ -18,6 +18,7 @@ regex = "1.5.4"
 serde = { version = "1.0.132", features = ["derive"] }
 thiserror = "1.0.30"
 tracing = "0.1.29"
+url = "2.2.2"
 
 [features]
 
