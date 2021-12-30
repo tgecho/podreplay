@@ -62,7 +62,7 @@ mod test {
     use std::collections::HashMap;
 
     fn feed(items: Vec<(&str, &str)>) -> FeedSummary {
-        let entries = items
+        let items = items
             .into_iter()
             .map(|(id, timestamp)| SummaryItem {
                 id: id.to_string(),
@@ -70,7 +70,12 @@ mod test {
                 timestamp: parse_dt(timestamp),
             })
             .collect();
-        FeedSummary::from_items("testing".into(), Some("testing".into()), entries)
+        FeedSummary {
+            uri: "testing".into(),
+            title: "testing".into(),
+            marked_private: true,
+            items,
+        }
     }
 
     #[test]

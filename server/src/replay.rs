@@ -98,7 +98,7 @@ pub async fn get<'a>(
         query.first,
     );
 
-    let body = rewrite_feed(&mut feed_reader, &replayed, true)?;
+    let body = rewrite_feed(&mut feed_reader, &replayed, true, !summary.marked_private)?;
 
     let headers = prepare_headers(next_slot, fetched_etag);
 

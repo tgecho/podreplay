@@ -25,7 +25,7 @@ async fn get(app: Router, uri: &str) -> Response<BoxBody> {
 
 #[traced_test]
 #[tokio::test]
-async fn returns_200() {
+async fn returns_200_for_atom() {
     let xml = include_str!("../../lib/tests/data/sample_atom.xml");
     let mock = mockito::mock("GET", "/hello").with_body(xml).create();
     let mock_uri = format!("{}/hello", &mockito::server_url());
@@ -41,10 +41,51 @@ async fn returns_200() {
 
     let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
 
-    let expected = xml.replace(
-        "        <updated>2003-12-13T18:30:02Z</updated>",
-        "        <updated>2021-10-23T01:09:00Z</updated>",
+    let expected = xml
+        .replace(
+            "        <updated>2003-12-13T18:30:02Z</updated>",
+            "        <updated>2021-10-23T01:09:00Z</updated>",
+        )
+        .replace(
+            "<feed xmlns=\"http://www.w3.org/2005/Atom\">",
+            "<feed xmlns=\"http://www.w3.org/2005/Atom\">\n    <itunes:block>Yes</itunes:block>",
+        );
+    assert_eq!(expected, body);
+    assert_eq!(status, StatusCode::OK);
+
+    mock.assert();
+}
+#[traced_test]
+#[tokio::test]
+async fn returns_200_for_rss() {
+    let xml = include_str!("../../lib/tests/data/sample_rss_2.0.xml");
+    let mock = mockito::mock("GET", "/hello").with_body(xml).create();
+    let mock_uri = format!("{}/hello", &mockito::server_url());
+
+    let app = test_app().await;
+
+    let uri = format!(
+        "/replay?rule=1w&start=2021-10-23T01:09:00Z&now=2021-11-23T01:09:00Z&uri={}",
+        mock_uri
     );
+    let response = get(app, &uri).await;
+    let status = response.status();
+
+    let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+
+    let expected = xml
+        .replace(
+            "\n\t\t\t<pubDate>Mon, 30 Sep 2002 01:56:02 GMT</pubDate>",
+            "\n\t\t\t<pubDate>Sat, 30 Oct 2021 01:09:00 +0000</pubDate>",
+        )
+        .replace(
+            "\n\t\t\t<pubDate>Sun, 29 Sep 2002 19:59:01 GMT</pubDate>",
+            "\n\t\t\t<pubDate>Sat, 23 Oct 2021 01:09:00 +0000</pubDate>",
+        )
+        .replace(
+            "<channel>",
+            "<channel>\n        <itunes:block>Yes</itunes:block>",
+        );
     assert_eq!(expected, body);
     assert_eq!(status, StatusCode::OK);
 

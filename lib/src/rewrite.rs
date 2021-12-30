@@ -46,6 +46,7 @@ pub fn rewrite_feed<R: BufRead>(
     xml: R,
     reschedule: &Reschedule<String>,
     pretty: bool,
+    mark_as_private: bool,
 ) -> Result<Vec<u8>, RewriteError> {
     let reader = quick_xml::Reader::from_reader(xml);
     let mut output = Vec::new();
@@ -54,14 +55,22 @@ pub fn rewrite_feed<R: BufRead>(
     } else {
         quick_xml::Writer::new(&mut output)
     };
-    rewrite_feed_to_writer(reader, writer, reschedule)?;
+    rewrite_feed_to_writer(reader, writer, reschedule, mark_as_private)?;
     Ok(output)
+}
+
+fn write_itunes_block<W: Write>(writer: &mut Writer<W>) -> Result<(), RewriteError> {
+    for ev in element(BytesStart::borrowed_name(b"itunes:block"), "Yes".into()) {
+        writer.write(ev)?;
+    }
+    Ok(())
 }
 
 fn rewrite_feed_to_writer<R: BufRead, W: Write>(
     mut reader: quick_xml::Reader<R>,
     writer: quick_xml::Writer<W>,
     reschedule: &Reschedule<String>,
+    mark_as_private: bool,
 ) -> Result<(), RewriteError> {
     let mut writer = Writer::new(writer);
     let mut buf = Vec::new();
@@ -71,6 +80,19 @@ fn rewrite_feed_to_writer<R: BufRead, W: Write>(
             Ok(Event::Start(start)) => match start.name() {
                 b"item" | b"entry" => {
                     rewrite_or_skip_item(start, &mut reader, &mut writer, reschedule)?;
+                }
+                b"channel" if mark_as_private => {
+                    writer.write(Event::Start(start))?;
+                    write_itunes_block(&mut writer)?;
+                }
+                b"feed" if mark_as_private => {
+                    let is_atom = start.attributes().filter_map(|a| a.ok()).any(|a| {
+                        a.key == b"xmlns" && a.value.as_ref() == b"http://www.w3.org/2005/Atom"
+                    });
+                    writer.write(Event::Start(start.clone()))?;
+                    if is_atom {
+                        write_itunes_block(&mut writer)?;
+                    }
                 }
                 _ => {
                     writer.write(Event::Start(start))?;
@@ -200,7 +222,7 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     fn parse_feed_to_str(xml: &str, reschedule: &Reschedule<String>) -> String {
-        let output = rewrite_feed(xml.as_bytes(), reschedule, true).unwrap();
+        let output = rewrite_feed(xml.as_bytes(), reschedule, true, false).unwrap();
         String::from_utf8(output).unwrap()
     }
 

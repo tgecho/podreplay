@@ -36,9 +36,11 @@ pub struct SummaryItem {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FeedSummary {
-    uri: String,
-    title: String,
-    items: Vec<SummaryItem>,
+    pub uri: String,
+    pub title: String,
+    #[serde(skip_serializing)]
+    pub marked_private: bool,
+    pub items: Vec<SummaryItem>,
 }
 
 #[derive(Error, Debug)]
@@ -52,18 +54,15 @@ pub enum SummarizeError {
 impl FeedSummary {
     pub fn new<R: BufRead>(uri: String, reader: &mut R) -> Result<Self, SummarizeError> {
         let reader = quick_xml::Reader::from_reader(reader);
-        let (items, title) = summarize_feed(reader)?;
-        Ok(FeedSummary::from_items(uri, title, items))
-    }
-
-    pub fn from_items(uri: String, title: Option<String>, mut items: Vec<SummaryItem>) -> Self {
+        let (mut items, title, marked_private) = summarize_feed(reader)?;
         items.reverse(); // we're most likely in reverse order
         items.sort_unstable_by_key(|i| i.timestamp); // just to be safe
-        FeedSummary {
+        Ok(FeedSummary {
             uri,
             title: title.unwrap_or_default(),
+            marked_private,
             items,
-        }
+        })
     }
 
     pub fn id_map(&self) -> HashMap<&str, &SummaryItem> {
@@ -89,12 +88,13 @@ impl FeedSummary {
 
 pub fn summarize_feed<R: BufRead>(
     mut reader: quick_xml::Reader<R>,
-) -> Result<(Vec<SummaryItem>, Option<String>), SummarizeError> {
+) -> Result<(Vec<SummaryItem>, Option<String>, bool), SummarizeError> {
     let mut results: Vec<SummaryItem> = Vec::new();
     let mut buf: Vec<u8> = Vec::new();
     let mut partial_item: Option<PartialItem> = None;
     let mut xml_decl_found = false;
     let mut feed_title = None;
+    let mut marked_private = false;
 
     loop {
         match reader.read_event(&mut buf) {
@@ -157,6 +157,12 @@ pub fn summarize_feed<R: BufRead>(
                         }
                     }
                 }
+                b"itunes:block" if partial_item.is_none() => {
+                    let name = start.name().to_owned();
+                    if let Ok(block) = reader.read_text(name, &mut buf) {
+                        marked_private = block.to_ascii_lowercase() == "yes"
+                    }
+                }
                 _ => {}
             },
             Ok(Event::End(end)) => {
@@ -181,7 +187,7 @@ pub fn summarize_feed<R: BufRead>(
     if results.is_empty() && !xml_decl_found {
         Err(SummarizeError::NotAFeed)
     } else {
-        Ok((results, feed_title))
+        Ok((results, feed_title, marked_private))
     }
 }
 
