@@ -35,6 +35,7 @@ pub struct SummaryItem {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FeedSummary {
+    uri: String,
     items: Vec<SummaryItem>,
 }
 
@@ -42,19 +43,21 @@ pub struct FeedSummary {
 pub enum SummarizeError {
     #[error("failed to parse feed")]
     Parse(#[from] quick_xml::Error),
+    #[error("no valid feed found")]
+    NotAFeed,
 }
 
 impl FeedSummary {
-    pub fn new<R: BufRead>(reader: &mut R) -> Result<Self, SummarizeError> {
+    pub fn new<R: BufRead>(uri: String, reader: &mut R) -> Result<Self, SummarizeError> {
         let reader = quick_xml::Reader::from_reader(reader);
         let items = summarize_feed(reader)?;
-        Ok(FeedSummary::from_items(items))
+        Ok(FeedSummary::from_items(uri, items))
     }
 
-    pub fn from_items(mut items: Vec<SummaryItem>) -> Self {
+    pub fn from_items(uri: String, mut items: Vec<SummaryItem>) -> Self {
         items.reverse(); // we're most likely in reverse order
         items.sort_unstable_by_key(|i| i.timestamp); // just to be safe
-        FeedSummary { items }
+        FeedSummary { uri, items }
     }
 
     pub fn id_map(&self) -> HashMap<&str, &SummaryItem> {
@@ -72,6 +75,10 @@ impl FeedSummary {
             })
             .collect()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.items.is_empty()
+    }
 }
 
 pub fn summarize_feed<R: BufRead>(
@@ -80,9 +87,13 @@ pub fn summarize_feed<R: BufRead>(
     let mut results: Vec<SummaryItem> = Vec::new();
     let mut buf: Vec<u8> = Vec::new();
     let mut partial_item: Option<PartialItem> = None;
+    let mut xml_decl_found = false;
 
     loop {
         match reader.read_event(&mut buf) {
+            Ok(Event::Decl(_)) => {
+                xml_decl_found = true;
+            }
             Ok(Event::Eof) => break,
             Ok(Event::Start(start)) => match start.name() {
                 b"item" | b"entry" => {
@@ -158,7 +169,11 @@ pub fn summarize_feed<R: BufRead>(
         }
         buf.clear();
     }
-    Ok(results)
+    if results.is_empty() && !xml_decl_found {
+        Err(SummarizeError::NotAFeed)
+    } else {
+        Ok(results)
+    }
 }
 
 fn parse_timestamp(timestamp_str: String) -> Option<DateTime<Utc>> {
@@ -168,6 +183,23 @@ fn parse_timestamp(timestamp_str: String) -> Option<DateTime<Utc>> {
 fn html_to_text(html: &str) -> String {
     let node = parse_html().one(html);
     node.text_contents()
+}
+
+pub fn find_feed_links<R: BufRead>(reader: &mut R, origin: &str) -> Option<Vec<String>> {
+    let doc = parse_html().from_utf8().read_from(reader).ok()?;
+    Some(
+        doc.select("link[rel=\"alternate\"]")
+            .ok()?
+            .filter_map(|el| {
+                let attr = el.attributes.borrow();
+                if attr.get("type") == Some("application/rss+xml") {
+                    attr.get("href").map(|href| href.to_string())
+                } else {
+                    None
+                }
+            })
+            .collect(),
+    )
 }
 
 #[cfg(test)]
@@ -181,7 +213,7 @@ mod test {
     #[test]
     fn atom() {
         let xml = include_str!("../tests/data/sample_atom.xml");
-        let output = FeedSummary::new(&mut Cursor::new(xml)).unwrap();
+        let output = FeedSummary::new("testing".into(), &mut Cursor::new(xml)).unwrap();
         let expected = vec![SummaryItem {
             id: "urn:uuid:1225c695-cfb8-4ebb-aaaa-80da344efa6a".to_string(),
             title: "Atom-Powered Robots Run Amok".to_string(),
@@ -193,7 +225,7 @@ mod test {
     #[test]
     fn rss2() {
         let xml = include_str!("../tests/data/sample_rss_2.0.xml");
-        let output = FeedSummary::new(&mut Cursor::new(xml)).unwrap();
+        let output = FeedSummary::new("testing".into(), &mut Cursor::new(xml)).unwrap();
         let expected = vec![
             SummaryItem {
                 id: "http://scriptingnews.userland.com/backissues/2002/09/29#When:12:59:01PM"

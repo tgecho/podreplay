@@ -26,10 +26,10 @@ pub enum FetchResponse {
 pub enum FetchError {
     #[error("failed to fetch feed")]
     Request(#[from] reqwest_middleware::Error),
+    #[error("failed to fetch feed")]
+    Response(reqwest::Response),
     #[error("failed to read feed body")]
     Read(#[from] reqwest::Error),
-    // #[error("failed to parse feed")]
-    // Parse(#[from] ParseFeedError),
 }
 
 impl Default for HttpClient {
@@ -64,6 +64,9 @@ impl HttpClient {
 
         if resp.status() == StatusCode::NOT_MODIFIED {
             return Ok(FetchResponse::NotModified);
+        }
+        if !resp.status().is_success() {
+            return Err(FetchError::Response(resp));
         }
 
         let etag = resp

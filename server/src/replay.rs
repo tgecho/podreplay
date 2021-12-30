@@ -81,7 +81,7 @@ pub async fn get<'a>(
     };
 
     let mut feed_reader = Cursor::new(feed_body);
-    let summary = FeedSummary::new(&mut feed_reader)?;
+    let summary = FeedSummary::new(query.uri.clone(), &mut feed_reader)?;
     feed_reader.rewind()?;
 
     let (feed_meta, entries) =

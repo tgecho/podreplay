@@ -1,3 +1,5 @@
+use std::io::{BufRead, Cursor, Read, Seek};
+
 use crate::fetch::{FetchError, FetchResponse, HttpClient};
 use axum::{
     body::{boxed, BoxBody},
@@ -7,7 +9,7 @@ use axum::{
 };
 use headers::{HeaderMap, HeaderValue};
 use hyper::{body::Buf, Body, StatusCode};
-use podreplay_lib::{FeedSummary, SummarizeError};
+use podreplay_lib::{find_feed_links, FeedSummary, SummarizeError};
 use serde::Deserialize;
 use thiserror::Error;
 
@@ -36,12 +38,36 @@ pub async fn get(
         FetchResponse::Fetched(feed_body, fetched_etag) => (feed_body, fetched_etag),
     };
 
-    let summary = FeedSummary::new(&mut feed_body.reader()).unwrap();
+    let mut reader = Cursor::new(feed_body);
+    let summary = match FeedSummary::new(query.uri.clone(), &mut reader) {
+        Ok(summary) => summary,
+        Err(err) => {
+            reader.rewind()?;
+            attempt_autodiscovery(&mut reader, &query.uri, http).await?
+        }
+    };
     let mut headers = HeaderMap::new();
     if let Some(etag) = fetched_etag.and_then(|etag| HeaderValue::from_str(etag.as_ref()).ok()) {
         headers.append("ETag", etag);
     }
     Ok(SummaryResponse::Success { headers, summary })
+}
+
+async fn attempt_autodiscovery<R: BufRead>(
+    reader: &mut R,
+    origin: &str,
+    http: HttpClient,
+) -> Result<FeedSummary, SummarizeError> {
+    for uri in find_feed_links(reader, origin).ok_or(SummarizeError::NotAFeed)? {
+        if let Ok(FetchResponse::Fetched(body, _)) = http.get_feed(&uri, None).await {
+            let mut reader = body.reader();
+            let summary = FeedSummary::new(uri, &mut reader);
+            if summary.is_ok() {
+                return summary;
+            }
+        }
+    }
+    Err(SummarizeError::NotAFeed)
 }
 
 pub enum SummaryResponse {
@@ -67,7 +93,7 @@ impl IntoResponse for SummaryResponse {
 pub enum SummaryError {
     #[error("failed to fetch feed")]
     FetchError(#[from] FetchError),
-    #[error("failed to fetch feed")]
+    #[error("failed to parse feed")]
     ParseError(#[from] SummarizeError),
     #[error("unexpected internal error")]
     UnknownError(#[from] std::io::Error),
