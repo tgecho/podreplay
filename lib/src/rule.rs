@@ -3,8 +3,7 @@ use std::collections::HashSet;
 use chrono::{DateTime, Datelike, Duration, Utc, Weekday};
 use chronoutil::DateRule;
 use itertools::Itertools;
-use lazy_static::lazy_static;
-use regex::Regex;
+use nom::IResult;
 
 pub enum Rule {
     Monthly {
@@ -55,59 +54,61 @@ impl IntoIterator for Rule {
     }
 }
 
-pub fn parse_rule(start: DateTime<Utc>, rule_str: &str) -> Rule {
-    lazy_static! {
-        static ref RE: Regex =
-            Regex::new(r"^(?P<interval>\d+)(?P<freq>m|w|d)(?P<Su>Su)?(?P<M>M)?(?P<Tu>Tu)?(?P<W>W)?(?P<Th>Th)?(?P<F>F)?(?P<Sa>Sa)?$")
-                .unwrap();
-    }
-    if let Some(capture) = RE.captures(rule_str) {
-        let interval = capture
-            .name("interval")
-            .map(|m| {
-                m.as_str()
-                    .parse::<usize>()
-                    .expect("regex \\d captured a non-integer!")
-            })
-            .unwrap_or(1);
-
-        match capture.name("freq").map(|m| m.as_str()) {
-            Some("m") => Rule::Monthly { start, interval },
-            Some("d") => Rule::Daily { start, interval },
-            _ => {
-                let days: HashSet<_> = ["Su", "M", "Tu", "W", "Th", "F", "Sa"]
-                    .iter()
-                    .filter_map(|name| {
-                        let day = capture.name(name)?.as_str();
-                        abbr_to_weekday(day)
-                    })
-                    .collect();
-                Rule::Weekly {
+impl Rule {
+    fn parse(start: DateTime<Utc>, s: &str) -> Result<Rule, String> {
+        use nom::{character::complete::one_of, sequence::tuple};
+        tuple((interval, one_of("mwd"), weekdays))(s)
+            .map(|(_, (interval, freq, days))| match freq {
+                'm' => Rule::Monthly { start, interval },
+                'w' => Rule::Weekly {
                     start,
                     interval,
                     days,
-                }
-            }
-        }
-    } else {
-        Rule::Weekly {
-            start,
-            interval: 1,
-            days: HashSet::new(),
-        }
+                },
+                'd' => Rule::Daily { start, interval },
+                _ => panic!("freq parser returned an invalid tag"),
+            })
+            .map_err(|err| err.to_string())
     }
 }
 
-fn abbr_to_weekday(abbr: &str) -> Option<Weekday> {
-    Some(match abbr {
-        "Su" => Weekday::Sun,
-        "M" => Weekday::Mon,
-        "Tu" => Weekday::Tue,
-        "W" => Weekday::Wed,
-        "Th" => Weekday::Thu,
-        "F" => Weekday::Fri,
-        "Sa" => Weekday::Sat,
-        _ => return None,
+fn interval(s: &str) -> IResult<&str, usize> {
+    use nom::{
+        character::complete::digit1,
+        combinator::{map_res, verify},
+    };
+    verify(map_res(digit1, |d: &str| d.parse()), |n| n > &0)(s)
+}
+
+fn weekdays(s: &str) -> IResult<&str, HashSet<Weekday>> {
+    use nom::{
+        bytes::complete::tag,
+        combinator::{map, opt},
+        sequence::tuple,
+    };
+
+    let parsed = tuple((
+        opt(map(tag("Su"), |_| Weekday::Sun)),
+        opt(map(tag("M"), |_| Weekday::Mon)),
+        opt(map(tag("Tu"), |_| Weekday::Tue)),
+        opt(map(tag("W"), |_| Weekday::Wed)),
+        opt(map(tag("Th"), |_| Weekday::Thu)),
+        opt(map(tag("F"), |_| Weekday::Fri)),
+        opt(map(tag("Sa"), |_| Weekday::Sat)),
+    ))(s);
+    parsed.map(|(remaining, (su, m, tu, w, th, f, sa))| {
+        (
+            remaining,
+            [su, m, tu, w, th, f, sa].into_iter().flatten().collect(),
+        )
+    })
+}
+
+pub fn parse_rule(start: DateTime<Utc>, rule_str: &str) -> Rule {
+    Rule::parse(start, rule_str).unwrap_or_else(|_| Rule::Weekly {
+        start,
+        interval: 1,
+        days: HashSet::new(),
     })
 }
 

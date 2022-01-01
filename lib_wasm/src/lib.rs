@@ -1,3 +1,4 @@
+#[cfg(debug_assertions)]
 mod utils;
 
 use chrono::{DateTime, TimeZone, Utc};
