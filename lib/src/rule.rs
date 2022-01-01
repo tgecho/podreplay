@@ -1,12 +1,61 @@
+use std::collections::HashSet;
+
 use chrono::{DateTime, Datelike, Duration, Utc, Weekday};
 use chronoutil::DateRule;
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use regex::Regex;
 
-pub type RuleIter = Box<dyn Iterator<Item = DateTime<Utc>>>;
+pub enum Rule {
+    Monthly {
+        start: DateTime<Utc>,
+        interval: usize,
+    },
+    Weekly {
+        start: DateTime<Utc>,
+        interval: usize,
+        days: HashSet<Weekday>,
+    },
+    Daily {
+        start: DateTime<Utc>,
+        interval: usize,
+    },
+}
 
-pub fn parse_rule(start: DateTime<Utc>, rule_str: &str) -> RuleIter {
+impl IntoIterator for Rule {
+    type Item = DateTime<Utc>;
+    type IntoIter = Box<dyn Iterator<Item = DateTime<Utc>>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        match self {
+            Rule::Monthly { start, interval } => {
+                Box::new(DateRule::monthly(start).step_by(interval))
+            }
+            Rule::Daily { start, interval } => Box::new(DateRule::daily(start).step_by(interval)),
+            Rule::Weekly {
+                start,
+                interval,
+                days,
+            } => {
+                if days.is_empty() {
+                    Box::new(DateRule::weekly(start).step_by(interval))
+                } else {
+                    let iter = days
+                        .into_iter()
+                        .map(|weekday| {
+                            let offset = days_until_weekday(start, weekday);
+                            let rule = DateRule::weekly(start + Duration::days(offset as i64));
+                            rule.step_by(interval)
+                        })
+                        .kmerge();
+                    Box::new(iter)
+                }
+            }
+        }
+    }
+}
+
+pub fn parse_rule(start: DateTime<Utc>, rule_str: &str) -> Rule {
     lazy_static! {
         static ref RE: Regex =
             Regex::new(r"^(?P<interval>\d+)(?P<freq>m|w|d)(?P<Su>Su)?(?P<M>M)?(?P<Tu>Tu)?(?P<W>W)?(?P<Th>Th)?(?P<F>F)?(?P<Sa>Sa)?$")
@@ -23,29 +72,29 @@ pub fn parse_rule(start: DateTime<Utc>, rule_str: &str) -> RuleIter {
             .unwrap_or(1);
 
         match capture.name("freq").map(|m| m.as_str()) {
-            Some("m") => Box::new(DateRule::monthly(start).step_by(interval)),
-            Some("d") => Box::new(DateRule::daily(start).step_by(interval)),
+            Some("m") => Rule::Monthly { start, interval },
+            Some("d") => Rule::Daily { start, interval },
             _ => {
-                let rules: Vec<_> = ["Su", "M", "Tu", "W", "Th", "F", "Sa"]
+                let days: HashSet<_> = ["Su", "M", "Tu", "W", "Th", "F", "Sa"]
                     .iter()
-                    .filter(|n| capture.name(n).is_some())
-                    .filter_map(|day| {
-                        let weekday = abbr_to_weekday(day)?;
-                        let offset = days_until_weekday(start, weekday);
-                        let rule = DateRule::weekly(start + Duration::days(offset as i64));
-                        Some(rule.step_by(interval))
+                    .filter_map(|name| {
+                        let day = capture.name(name)?.as_str();
+                        abbr_to_weekday(day)
                     })
                     .collect();
-
-                if rules.is_empty() {
-                    Box::new(DateRule::weekly(start).step_by(interval))
-                } else {
-                    Box::new(rules.into_iter().kmerge())
+                Rule::Weekly {
+                    start,
+                    interval,
+                    days,
                 }
             }
         }
     } else {
-        Box::new(DateRule::weekly(start))
+        Rule::Weekly {
+            start,
+            interval: 1,
+            days: HashSet::new(),
+        }
     }
 }
 
@@ -93,6 +142,7 @@ mod test {
     fn test_parse_daily() {
         assert_eq!(
             parse_rule(parse_dt("2013-10-10T21:00:00"), "1d")
+                .into_iter()
                 .take(3)
                 .collect::<Vec<_>>(),
             vec![
@@ -107,6 +157,7 @@ mod test {
     fn test_parse_every_3_days() {
         assert_eq!(
             parse_rule(parse_dt("2013-10-10T21:00:00"), "3d")
+                .into_iter()
                 .take(3)
                 .collect::<Vec<_>>(),
             vec![
@@ -121,6 +172,7 @@ mod test {
     fn test_parse_monthly() {
         assert_eq!(
             parse_rule(parse_dt("2013-10-10T21:00:00"), "1m")
+                .into_iter()
                 .take(3)
                 .collect::<Vec<_>>(),
             vec![
@@ -135,6 +187,7 @@ mod test {
     fn test_parse_every_2_months() {
         assert_eq!(
             parse_rule(parse_dt("2013-10-10T21:00:00"), "2m")
+                .into_iter()
                 .take(3)
                 .collect::<Vec<_>>(),
             vec![
@@ -149,6 +202,7 @@ mod test {
     fn test_parse_weekly() {
         assert_eq!(
             parse_rule(parse_dt("2013-10-10T21:00:00"), "1w")
+                .into_iter()
                 .take(3)
                 .collect::<Vec<_>>(),
             vec![
@@ -163,6 +217,7 @@ mod test {
     fn test_parse_every_3_weeks() {
         assert_eq!(
             parse_rule(parse_dt("2013-10-10T21:00:00"), "3w")
+                .into_iter()
                 .take(3)
                 .collect::<Vec<_>>(),
             vec![
@@ -177,6 +232,7 @@ mod test {
     fn test_parse_weekly_every_other_friday() {
         assert_eq!(
             parse_rule(parse_dt("2013-10-10T21:00:00"), "2wF")
+                .into_iter()
                 .take(3)
                 .collect::<Vec<_>>(),
             vec![
@@ -191,6 +247,7 @@ mod test {
     fn test_parse_weekly_every_tue_and_sat() {
         assert_eq!(
             parse_rule(parse_dt("2013-10-10T21:00:00"), "1wTuSa")
+                .into_iter()
                 .take(3)
                 .collect::<Vec<_>>(),
             vec![

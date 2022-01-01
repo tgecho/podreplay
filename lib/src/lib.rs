@@ -11,7 +11,7 @@ use chrono::{DateTime, Utc};
 pub use diff::{create_cached_entry_map, diff_feed};
 pub use reschedule::{reschedule_feed, Item, Reschedule};
 pub use rewrite::{rewrite_feed, RewriteError};
-pub use rule::{parse_rule, RuleIter};
+pub use rule::{parse_rule, Rule};
 pub use summarize::{find_feed_links, FeedSummary, SummarizeError, SummaryItem};
 
 #[derive(Debug)]

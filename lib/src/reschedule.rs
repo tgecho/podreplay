@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use std::{collections::HashMap, hash::Hash, marker::PhantomData};
 
-use crate::rule::RuleIter;
+use crate::rule::Rule;
 
 pub type Reschedule<K> = HashMap<K, DateTime<Utc>>;
 
@@ -16,7 +16,7 @@ pub trait Item<Id: Clone> {
 
 pub fn reschedule_feed<K, I, Cutoff, FeedNoticed, FirstItem, LastItem>(
     items: &[I],
-    rule: RuleIter,
+    rule: Rule,
     start: DateTime<Utc>,
     cutoff: Cutoff,
     feed_noticed: FeedNoticed,
