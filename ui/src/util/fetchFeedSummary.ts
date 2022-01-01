@@ -5,5 +5,5 @@ export type FeedSummary = {
   items: FeedItem[];
 };
 export function fetchFeedSummary(uri: string, fetchFn = fetch): Promise<FeedSummary> {
-  return fetchFn(`http://localhost:3000/summary?uri=${uri}`).then((r) => r.json());
+  return fetchFn(`/summary?uri=${uri}`).then((r) => r.json());
 }

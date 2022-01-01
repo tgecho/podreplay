@@ -1,4 +1,4 @@
-import { sortBy } from 'lodash';
+import { sortBy } from 'lodash-es';
 
 const keys = ['rule', 'first', 'last', 'start', 'uri'];
 const sortFn = keys.indexOf.bind(keys);

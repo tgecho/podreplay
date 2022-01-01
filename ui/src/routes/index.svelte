@@ -2,8 +2,8 @@
   import { FeedSummary, fetchFeedSummary } from '../util/fetchFeedSummary';
   import type { Load } from '@sveltejs/kit';
 
-  export const load: Load = async ({ page, fetch }) => {
-    const uri = page.query.get('uri');
+  export const load: Load = async ({ url, fetch }) => {
+    const uri = url.searchParams.get('uri');
     const feed = uri ? await fetchFeedSummary(uri, fetch) : null;
     return { props: { feed } };
   };
@@ -11,7 +11,7 @@
 
 <script lang="ts">
   import { format } from 'date-fns';
-  import { debounce } from 'lodash';
+  import { debounce } from 'lodash-es';
   import FeedForm from '../components/FeedForm.svelte';
   import { page } from '$app/stores';
   import { browser } from '$app/env';
@@ -25,16 +25,16 @@
   let replayFeedUrl = '';
 
   const start = new Date().toISOString();
-  const uri = $page.query.get('uri') || '';
+  const uri = $page.url.searchParams.get('uri') || '';
 
-  let first: string | undefined = $page.query.get('first') || undefined;
-  let last: string | undefined = $page.query.get('last') || undefined;
+  let first: string | undefined = $page.url.searchParams.get('first') || undefined;
+  let last: string | undefined = $page.url.searchParams.get('last') || undefined;
 
-  let ruleString = $page.query.get('rule') || '1w';
+  let ruleString = $page.url.searchParams.get('rule') || '1w';
   const rule = parseRule(ruleString);
 
   const updateQueryString = debounce(() => {
-    const queryString = sortedQueryString($page.query);
+    const queryString = sortedQueryString($page.url.searchParams);
 
     // TODO: tighten up the formatted date to not include sub second precision
     replayFeedUrl = `${location.origin}/replay?start=${start}&${queryString}`;
@@ -43,9 +43,9 @@
 
   function updateQueryParam(name: string, value?: string | number) {
     if (value) {
-      $page.query.set(name, value.toString());
+      $page.url.searchParams.set(name, value.toString());
     } else {
-      $page.query.delete(name);
+      $page.url.searchParams.delete(name);
     }
     updateQueryString();
   }
@@ -134,9 +134,15 @@
   </form>
 
   <table class="timeline">
+    <tr>
+      <th>Title</th>
+      <th>Original</th>
+      <th>Shifted</th>
+      <th colspan="2">Limit</th>
+    </tr>
     {#each feed?.items as item, index}
       <tr>
-        <th>{item.title}</th>
+        <td>{item.title}</td>
         <!-- <td>{item.timestamp}</td> -->
         <td>{format(new Date(item.timestamp), 'MMM do, y')}</td>
         <td>
