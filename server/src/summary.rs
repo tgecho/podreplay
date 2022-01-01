@@ -23,6 +23,8 @@ pub async fn get(
     headers: HeaderMap,
     Extension(http): Extension<HttpClient>,
 ) -> Result<SummaryResponse, SummaryError> {
+    // TODO: try to add http(s) if missing?
+
     let if_none_match = headers
         .get("if-none-match")
         .and_then(|inm| inm.to_str().ok())

@@ -17,3 +17,9 @@
   <input name="uri" value={uri} />
   <button>Load</button>
 </form>
+
+<style>
+  input {
+    width: 100%;
+  }
+</style>
