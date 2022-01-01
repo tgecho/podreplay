@@ -140,10 +140,9 @@
       <th>Shifted</th>
       <th colspan="2">Limit</th>
     </tr>
-    {#each feed?.items as item, index}
+    {#each feed?.items as item, index (item.id)}
       <tr>
         <td>{item.title}</td>
-        <!-- <td>{item.timestamp}</td> -->
         <td>{format(new Date(item.timestamp), 'MMM do, y')}</td>
         <td>
           {#if rescheduled[index]}
@@ -158,7 +157,7 @@
               type="radio"
               bind:group={first}
               value={item.timestamp}
-              disabled={!!(last && item.timestamp >= last)}
+              disabled={last ? item.timestamp >= last : false}
             /> first</label
           >
           {#if item.timestamp == first}<button type="button" on:click={() => (first = undefined)}
@@ -171,7 +170,7 @@
               type="radio"
               bind:group={last}
               value={item.timestamp}
-              disabled={!!(first && item.timestamp <= first)}
+              disabled={first ? item.timestamp <= first : false}
             /> last</label
           >
           {#if item.timestamp == last}<button type="button" on:click={() => (last = undefined)}

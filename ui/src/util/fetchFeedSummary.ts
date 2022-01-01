@@ -1,4 +1,8 @@
-export type FeedItem = { title: string; timestamp: string };
+export type FeedItem = {
+  id: string;
+  title: string;
+  timestamp: string;
+};
 export type FeedSummary = {
   title: string;
   uri: string;
