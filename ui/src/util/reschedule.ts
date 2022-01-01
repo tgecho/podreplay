@@ -1,5 +1,8 @@
-import init, * as wasm from 'podreplay_lib_wasm';
+import initWasm, * as wasm from 'podreplay_lib_wasm';
 import { fromUnixTime, getUnixTime } from 'date-fns';
+import { once } from 'lodash-es';
+
+const init = once(initWasm);
 
 export async function reschedule(
   items: { timestamp: string }[],
