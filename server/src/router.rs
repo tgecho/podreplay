@@ -9,6 +9,7 @@ use tower_http::{services::ServeDir, trace::TraceLayer};
 
 pub fn make_router(db: Db, http: HttpClient) -> Router {
     Router::new()
+        // TODO: Make this configurable
         .fallback(get_service(ServeDir::new("ui/build")).handle_error(
             |error: std::io::Error| async move {
                 (

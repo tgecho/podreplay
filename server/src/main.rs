@@ -13,6 +13,7 @@ async fn main() {
     }
     tracing_subscriber::fmt::init();
 
+    // TODO: make this configurable
     let db = Db::new("sqlite://test.sqlite")
         .await
         .expect("Failed to open sqlite");

@@ -1,0 +1,6 @@
+target
+node_modules
+.git
+ui/.svelte-kit
+ui/node_modules
+*.sqlite
