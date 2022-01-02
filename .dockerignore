@@ -4,3 +4,4 @@ node_modules
 ui/.svelte-kit
 ui/node_modules
 *.sqlite
+lib_wasm/pkg
