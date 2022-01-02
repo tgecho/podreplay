@@ -48,13 +48,13 @@ RUN pnpm build
 FROM ubuntu:latest AS app
 
 # Copy server binary
-COPY --from=server_and_wasm /usr/local/cargo/bin/podreplay ./app/
+COPY --from=server_and_wasm /usr/local/cargo/bin/podreplay /app/
 
 # Copy the (empty) prebuilt database
 # TODO: manage this with litestream and a boot time config?
-COPY --from=server_and_wasm /usr/src/db.sqlite ./test.sqlite
+COPY --from=server_and_wasm /usr/src/db.sqlite /test.sqlite
 
 # Copy the transpiled frontend
-COPY --from=frontend /usr/src/ui/build ./ui/build
+COPY --from=frontend /usr/src/ui/build /ui/build
 
 CMD "/app/podreplay"
