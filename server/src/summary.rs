@@ -37,7 +37,7 @@ pub async fn get(
             tracing::debug!("NotModified (feed returned 304)");
             return Ok(SummaryResponse::NotModified);
         }
-        FetchResponse::Fetched(feed_body, fetched_etag) => (feed_body, fetched_etag),
+        FetchResponse::Fetched { body, etag, .. } => (body, etag),
     };
 
     let mut reader = Cursor::new(feed_body);
@@ -61,7 +61,7 @@ async fn attempt_autodiscovery<R: BufRead>(
     http: HttpClient,
 ) -> Result<FeedSummary, SummarizeError> {
     for uri in find_feed_links(reader, origin) {
-        if let Ok(FetchResponse::Fetched(body, _)) = http.get_feed(&uri, None).await {
+        if let Ok(FetchResponse::Fetched { body, .. }) = http.get_feed(&uri, None).await {
             let mut reader = body.reader();
             let summary = FeedSummary::new(uri, &mut reader);
             if summary.is_ok() {

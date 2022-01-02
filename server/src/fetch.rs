@@ -19,7 +19,11 @@ impl std::fmt::Debug for HttpClient {
 
 pub enum FetchResponse {
     NotModified,
-    Fetched(Bytes, Option<String>),
+    Fetched {
+        body: Bytes,
+        etag: Option<String>,
+        content_type: Option<String>,
+    },
 }
 
 #[derive(Error, Debug)]
@@ -69,15 +73,23 @@ impl HttpClient {
             return Err(FetchError::Response(resp));
         }
 
-        let etag = resp
-            .headers()
+        let headers = resp.headers();
+        let etag = headers
             .get("etag")
             .and_then(|etag| etag.to_str().ok())
             .map(|etag| etag.to_string());
+        let content_type = headers
+            .get("content-type")
+            .and_then(|ct| ct.to_str().ok())
+            .map(|ct| ct.to_string());
 
         let body = resp.bytes().await?;
         tracing::trace!(?etag, ?body);
 
-        Ok(FetchResponse::Fetched(body, etag))
+        Ok(FetchResponse::Fetched {
+            body,
+            etag,
+            content_type,
+        })
     }
 }

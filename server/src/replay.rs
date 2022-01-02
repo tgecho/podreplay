@@ -71,14 +71,18 @@ pub async fn get<'a>(
         )
         .await?;
 
-    let (feed_body, fetched_etag) = match fetched {
+    let (feed_body, fetched_etag, content_type) = match fetched {
         FetchResponse::NotModified => {
             tracing::debug!("NotModified (feed returned 304)");
             return Ok(ReplayResponse::NotModified {
                 headers: prepare_headers(request_expires, feed_request_etag.map(|e| e.to_string())),
             });
         }
-        FetchResponse::Fetched(feed_body, fetched_etag) => (feed_body, fetched_etag),
+        FetchResponse::Fetched {
+            body,
+            etag,
+            content_type,
+        } => (body, etag, content_type),
     };
 
     let mut feed_reader = Cursor::new(feed_body);
@@ -101,7 +105,12 @@ pub async fn get<'a>(
     );
 
     let body = rewrite_feed(&mut feed_reader, &replayed, true, !summary.marked_private)?;
-    let headers = prepare_headers(next_slot, fetched_etag);
+    let mut headers = prepare_headers(next_slot, fetched_etag);
+    headers.append(
+        "Content-Type",
+        HeaderValue::from_str(&content_type.unwrap_or_else(|| "application/rss+xml".to_string()))
+            .unwrap(),
+    );
     Ok(ReplayResponse::Success { body, headers })
 }
 
@@ -194,14 +203,7 @@ impl IntoResponse for ReplayResponse {
             ReplayResponse::NotModified { headers } => {
                 (headers, StatusCode::NOT_MODIFIED).into_response()
             }
-            ReplayResponse::Success { mut headers, body } => {
-                // TODO: match original feed content-type?
-                headers.append(
-                    "Content-Type",
-                    HeaderValue::from_str("application/atom+xml").unwrap(),
-                );
-                (headers, body).into_response()
-            }
+            ReplayResponse::Success { headers, body } => (headers, body).into_response(),
         }
     }
 }

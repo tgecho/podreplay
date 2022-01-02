@@ -38,6 +38,13 @@ async fn returns_200_for_atom() {
     );
     let response = get(app, &uri).await;
     let status = response.status();
+    let content_type = response
+        .headers()
+        .get("content-type")
+        .unwrap() // wat...
+        .to_str()
+        .unwrap() // the...
+        .to_string();
 
     let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
 
@@ -52,6 +59,7 @@ async fn returns_200_for_atom() {
         );
     assert_eq!(expected, body);
     assert_eq!(status, StatusCode::OK);
+    assert_eq!(content_type, "application/rss+xml");
 
     mock.assert();
 }
@@ -70,6 +78,13 @@ async fn returns_200_for_rss() {
     );
     let response = get(app, &uri).await;
     let status = response.status();
+    let content_type = response
+        .headers()
+        .get("content-type")
+        .unwrap() // wat...
+        .to_str()
+        .unwrap() // the...
+        .to_string();
 
     let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
 
@@ -88,6 +103,7 @@ async fn returns_200_for_rss() {
         );
     assert_eq!(expected, body);
     assert_eq!(status, StatusCode::OK);
+    assert_eq!(content_type, "application/rss+xml");
 
     mock.assert();
 }
