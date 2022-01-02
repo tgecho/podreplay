@@ -101,10 +101,7 @@ pub async fn get<'a>(
     );
 
     let body = rewrite_feed(&mut feed_reader, &replayed, true, !summary.marked_private)?;
-
     let headers = prepare_headers(next_slot, fetched_etag);
-
-    // TODO: use replayed and the fetched feed to build a final feed
     Ok(ReplayResponse::Success { body, headers })
 }
 

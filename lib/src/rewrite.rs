@@ -5,9 +5,8 @@ use quick_xml::Reader;
 use std::io::{BufRead, Write};
 use thiserror::Error;
 
-/*
-TODO: Consider how/if we can rewrite (or omit?) the pubDate/lastPubDate/ttl/skipHours/skipDays channel elements
- */
+// TODO: Consider how/if we can rewrite (or omit?) the
+// pubDate/lastPubDate/ttl/skipHours/skipDays channel elements
 
 struct Writer<W: Write> {
     writer: quick_xml::Writer<W>,
@@ -149,7 +148,6 @@ fn rewrite_or_skip_item<B: BufRead, W: Write>(
                         let guid = reader.read_text(start.name(), &mut start_buf)?;
 
                         if let Some(rescheduled_timestamp) = reschedule.get(&guid) {
-                            // TODO: figure out how to get the correct format here
                             events.extend(element(start, guid));
 
                             if let Some((ts_index, ts_start)) = skipped_timestamp.take() {

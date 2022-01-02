@@ -559,10 +559,8 @@ mod test {
         let items = cached_entries(
             1,
             vec![
-                // TODO: OK, so the issue here is that this is the is_first_noticed
-                // but it falls AFTER the start of this replay. If we pass in the
-                // actual concrete start time I guess we could filter out any
-                // noticed before that timestamp while keeping at least one total
+                // So the issue here is that this is the is_first_noticed
+                // but it falls AFTER the start of this replay.
                 ("1", "2014-11-01T21:00:00", "2014-11-11T21:00:00"),
                 ("2", "2014-11-02T09:00:00", "pub"),
             ],
