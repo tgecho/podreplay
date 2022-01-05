@@ -31,6 +31,7 @@ pub struct SummaryQuery {
     first: Option<DateTime<Utc>>,
     last: Option<DateTime<Utc>>,
     uri: String,
+    // TODO: Allow setting a custom feed title?
     #[cfg(test)]
     now: DateTime<Utc>,
 }

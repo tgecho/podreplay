@@ -1,0 +1,5 @@
+# Defaults for local dev
+
+log_level = "debug"
+database_url = "test.sqlite"
+assets_path = "ui/build"

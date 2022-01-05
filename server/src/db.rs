@@ -11,7 +11,7 @@ use tracing::log::LevelFilter;
 
 #[derive(Clone)]
 pub struct Db {
-    uri: &'static str,
+    uri: String,
     pool: SqlitePool,
 }
 
@@ -22,13 +22,23 @@ impl Debug for Db {
 }
 
 impl Db {
-    pub async fn new(uri: &'static str) -> Result<Self, sqlx::Error> {
-        let mut options = SqliteConnectOptions::from_str(uri)?;
+    pub async fn new(uri: String) -> Result<Self, sqlx::Error> {
+        let default_prefix = "sqlite://";
+        let uri = if !uri.starts_with(default_prefix) {
+            default_prefix.to_string() + &uri
+        } else {
+            uri
+        };
+
+        let mut options = SqliteConnectOptions::from_str(&uri)?;
         options
             .log_statements(LevelFilter::Debug)
             .log_slow_statements(LevelFilter::Warn, Duration::from_millis(10));
         let pool = SqlitePool::connect_with(options).await?;
-        let db = Db { uri, pool };
+        let db = Db {
+            uri: uri.clone(),
+            pool,
+        };
         tracing::info!("sqlite path: {}, version: {}", uri, db.get_version().await?);
         Ok(db)
     }

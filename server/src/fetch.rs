@@ -8,6 +8,7 @@ use thiserror::Error;
 
 #[derive(Clone)]
 pub struct HttpClient {
+    user_agent: String,
     client: ClientWithMiddleware,
 }
 
@@ -36,18 +37,12 @@ pub enum FetchError {
     Read(#[from] reqwest::Error),
 }
 
-impl Default for HttpClient {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl HttpClient {
-    pub fn new() -> Self {
+    pub fn new(user_agent: String) -> Self {
         let client = ClientBuilder::new(reqwest::Client::new())
             .with(TracingMiddleware)
             .build();
-        HttpClient { client }
+        HttpClient { client, user_agent }
     }
 
     #[tracing::instrument(level = "debug")]
@@ -56,7 +51,7 @@ impl HttpClient {
         uri: &str,
         etag: Option<String>,
     ) -> Result<FetchResponse, FetchError> {
-        let req = self.client.get(uri).header("User-Agent", "podreplay/0.1");
+        let req = self.client.get(uri).header("User-Agent", &self.user_agent);
         let req = if let Some(etag) = etag {
             req.header("If-None-Match", etag)
         } else {
