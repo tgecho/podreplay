@@ -15,8 +15,8 @@ export type Rule = {
 };
 type Weekday = keyof Rule['weekdays'];
 
-export function parseRule(rule: string): Rule {
-  const ruleMatch = RE.exec(rule);
+export function parseRule(rule?: string | null): Rule {
+  const ruleMatch = rule && RE.exec(rule);
   if (ruleMatch) {
     const [, interval, freq, Su, M, Tu, W, Th, F, Sa] = ruleMatch;
     return {

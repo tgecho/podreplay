@@ -1,19 +1,23 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
+  import { queryToState, sortedQueryString } from '../util/state';
 
   export let uri = '';
 
-  const handleSubmit: svelte.JSX.FormEventHandler<HTMLFormElement> = (ev) => {
+  const handleSubmit = (ev: Event) => {
     const form = ev.currentTarget as HTMLFormElement;
-    const params = new URLSearchParams();
+    const query = $page.url.searchParams;
+
     for (const el of Array.from(form.elements) as HTMLInputElement[]) {
-      if (el.name && el.value) params.set(el.name, el.value);
+      if (el.name && el.value) query.set(el.name, el.value);
     }
-    goto(`${form.target}?${params.toString()}`);
+
+    goto(`${form.action}?${sortedQueryString(queryToState(query))}`);
   };
 </script>
 
-<form action="/" on:submit|preventDefault={handleSubmit}>
+<form action="/preview" on:submit|preventDefault={handleSubmit}>
   <input name="uri" value={uri} />
   <button>Load</button>
 </form>
