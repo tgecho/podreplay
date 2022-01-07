@@ -23,8 +23,8 @@ const config = {
           allow: ['./target/wasm-pack'],
         },
         proxy: {
-          '/replay': 'http://localhost:3100',
-          '/summary': 'http://localhost:3100',
+          '/replay': 'http://localhost:8080',
+          '/summary': 'http://localhost:8080',
         },
       },
     },

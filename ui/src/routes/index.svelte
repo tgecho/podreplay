@@ -30,15 +30,15 @@
   let first: string | undefined = $page.url.searchParams.get('first') || undefined;
   let last: string | undefined = $page.url.searchParams.get('last') || undefined;
 
-  let ruleString = $page.url.searchParams.get('rule') || '1w';
-  const rule = parseRule(ruleString);
+  let ruleString = uri && $page.url.searchParams.get('rule');
+  const rule = (ruleString && parseRule(ruleString)) || {};
 
   const updateQueryString = debounce(() => {
     const queryString = sortedQueryString($page.url.searchParams);
 
     // TODO: tighten up the formatted date to not include sub second precision
     replayFeedUrl = `${location.origin}/replay?start=${start}&${queryString}`;
-    if (browser) history.replaceState({}, '', `?${queryString}`);
+    if (browser && queryString) history.replaceState({}, '', `?${queryString}`);
   }, 150);
 
   function updateQueryParam(name: string, value?: string | number) {
@@ -54,11 +54,13 @@
   $: updateQueryParam('first', first);
   $: updateQueryParam('last', last);
   $: {
-    ruleString = ruleToString(rule);
-    updateQueryParam('rule', ruleString);
+    if (rule.uri) {
+      ruleString = ruleToString(rule);
+      updateQueryParam('rule', ruleString);
+    }
   }
   $: {
-    if (feed) {
+    if (feed && ruleString) {
       reschedule(feed.items, ruleString, start, first, last).then((r) => {
         rescheduled = r;
       });
