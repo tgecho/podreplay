@@ -217,15 +217,15 @@ impl IntoResponse for ReplayResponse {
 
 #[derive(Error, Debug)]
 pub enum ReplayError {
-    #[error("failed to fetch feed")]
+    #[error("{0}")]
     FetchError(#[from] FetchError),
-    #[error("failed to fetch feed")]
+    #[error("{0}")]
     ParseError(#[from] SummarizeError),
-    #[error("failed to rewrite feed")]
+    #[error("{0}")]
     WriteError(#[from] RewriteError),
-    #[error("database request failed")]
+    #[error("Unexpected internal error")]
     DatabaseError(#[from] sqlx::Error),
-    #[error("unexpected internal error")]
+    #[error("Unexpected internal error")]
     UnknownError(#[from] std::io::Error),
 }
 
@@ -233,8 +233,12 @@ impl IntoResponse for ReplayError {
     fn into_response(self) -> Response<BoxBody> {
         tracing::error!(?self);
         let body = Body::from(self.to_string());
+        let status = match self {
+            Self::FetchError(_) | Self::ParseError(_) => StatusCode::BAD_GATEWAY,
+            _ => StatusCode::INTERNAL_SERVER_ERROR,
+        };
         Response::builder()
-            .status(StatusCode::INTERNAL_SERVER_ERROR)
+            .status(status)
             .body(boxed(body))
             .expect("Failed to build error response")
     }

@@ -1,114 +1,51 @@
-<script context="module" lang="ts">
-  import { FeedSummary, fetchFeedSummary } from '../util/fetchFeedSummary';
-  import type { Load } from '@sveltejs/kit';
-
-  export const load: Load = async ({ url, fetch }) => {
-    const uri = url.searchParams.get('uri');
-    const feed = uri ? await fetchFeedSummary(uri, fetch) : null;
-    return { props: { feed } };
-  };
-</script>
-
 <script lang="ts">
   import FeedForm from '../components/FeedForm.svelte';
   import ItemPreview from '../components/ItemPreview.svelte';
+  import ConfigureForm from '../components/ConfigureForm.svelte';
   import { queryStore, replayUrlStore } from '../util/state';
-
-  export let feed: FeedSummary;
-  const start = new Date().toISOString();
+  import { feedSummaryStore, fetchFeedSummary } from '../util/fetchFeedSummary';
 
   const state = queryStore();
+  const feed = feedSummaryStore(state);
+  const start = new Date().toISOString();
   const replayUrl = replayUrlStore(state, start);
-
-  $: s = $state.interval > 1 ? 's' : '';
 </script>
+
+<svelte:head>
+  {#await $feed}
+    <title>PodReplay: Loading feed...</title>
+  {:then feed}
+    <title>PodReplay: {feed.title}</title>
+  {:catch}
+    <title>PodReplay: Error</title>
+  {/await}
+</svelte:head>
 
 <h1>PodReplay</h1>
 
-<FeedForm uri={$state.uri} />
+<FeedForm {state} />
 
-{#if feed}
+{#await $feed}
+  Loading feed...
+{:then feed}
   <br /><b>Title:</b>
   {feed.title}
   <br /><b>URI:</b>
   {feed.uri}
 
-  <form target="/preview" on:submit|preventDefault>
-    <input type="hidden" name="uri" value={$state.uri} />
+  <ConfigureForm {feed} {state} />
 
-    <fieldset>
-      Custom Title:
-      <input name="title" bind:value={$state.title} placeholder={`${feed.title} (PodReplay)`} />
-    </fieldset>
-
-    <fieldset>
-      A replayed episode every
-      <input type="number" name="interval" bind:value={$state.interval} min={1} max={10} />
-    </fieldset>
-
-    <fieldset>
-      <label>
-        <input type="radio" name="freq" bind:group={$state.freq} value="m" />
-        Month{s}
-      </label>
-      <label>
-        <input type="radio" name="freq" bind:group={$state.freq} value="w" />
-        Week{s}
-      </label>
-      <label>
-        <input type="radio" name="freq" bind:group={$state.freq} value="d" /> Day{s}
-      </label>
-    </fieldset>
-    {#if $state.freq === 'w'}
-      <fieldset>
-        On
-        <label>
-          <input type="checkbox" bind:checked={$state.weekdays.Su} name="weekday-Su" />
-          Sunday
-        </label>
-        <label>
-          <input type="checkbox" bind:checked={$state.weekdays.M} name="weekday-M" />
-          Monday
-        </label>
-        <label>
-          <input type="checkbox" bind:checked={$state.weekdays.Tu} name="weekday-Tu" />
-          Tuesday
-        </label>
-        <label>
-          <input type="checkbox" bind:checked={$state.weekdays.W} name="weekday-W" />
-          Wednesday
-        </label>
-        <label>
-          <input type="checkbox" bind:checked={$state.weekdays.Th} name="weekday-Th" />
-          Thursday
-        </label>
-        <label>
-          <input type="checkbox" bind:checked={$state.weekdays.F} name="weekday-F" />
-          Friday
-        </label>
-        <label>
-          <input type="checkbox" bind:checked={$state.weekdays.Sa} name="weekday-Sa" />
-          Saturday
-        </label>
-      </fieldset>
-    {/if}
-
-    <div>
-      <a href={$replayUrl} title={`Feed URL: ${$replayUrl}`} class="subscribe-url">Subscribe</a>
-    </div>
-  </form>
+  <div>
+    <a href={$replayUrl} title={`Feed URL: ${$replayUrl}`} class="subscribe-url">Subscribe</a>
+  </div>
 
   <ItemPreview {feed} {start} {state} />
-{/if}
+{:catch error}
+  Error: {error}
+{/await}
 
 <style>
   h1 {
     font-size: 1.5rem;
-  }
-  form {
-    display: block;
-  }
-  .subscribe-url {
-    width: 100%;
   }
 </style>

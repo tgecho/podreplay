@@ -35,9 +35,9 @@ impl<W: Write> Writer<W> {
 
 #[derive(Error, Debug)]
 pub enum RewriteError {
-    #[error("failed to parse feed")]
+    #[error("Failed to parse feed: {0}")]
     Parse(#[from] quick_xml::Error),
-    #[error("failed to write feed")]
+    #[error("Failed to write feed")]
     Write(quick_xml::Error),
 }
 

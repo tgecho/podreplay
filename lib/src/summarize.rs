@@ -45,9 +45,9 @@ pub struct FeedSummary {
 
 #[derive(Error, Debug)]
 pub enum SummarizeError {
-    #[error("failed to parse feed")]
+    #[error("Failed to parse feed: {0}")]
     Parse(#[from] quick_xml::Error),
-    #[error("no valid feed found")]
+    #[error("No valid feed found")]
     NotAFeed,
 }
 

@@ -29,11 +29,11 @@ pub enum FetchResponse {
 
 #[derive(Error, Debug)]
 pub enum FetchError {
-    #[error("failed to fetch feed")]
+    #[error("{0}")]
     Request(#[from] reqwest_middleware::Error),
-    #[error("failed to fetch feed")]
+    #[error("Failed to fetch feed")]
     Response(reqwest::Response),
-    #[error("failed to read feed body")]
+    #[error("{0}")]
     Read(#[from] reqwest::Error),
 }
 

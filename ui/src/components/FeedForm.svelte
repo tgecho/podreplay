@@ -1,25 +1,29 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
-  import { queryToState, sortedQueryString } from '../util/state';
+  import { writable } from 'svelte/store';
+  import { queryToState, sortedQueryString, State } from '../util/state';
 
-  export let uri = '';
+  function localState() {
+    return writable<State>(queryToState($page.url.searchParams));
+  }
 
-  const handleSubmit = (ev: Event) => {
-    const form = ev.currentTarget as HTMLFormElement;
-    const query = $page.url.searchParams;
+  export let action = '/preview';
+  export let state = localState();
+  export let uri = $state?.uri ?? '';
 
-    for (const el of Array.from(form.elements) as HTMLInputElement[]) {
-      if (el.name && el.value) query.set(el.name, el.value);
+  const handleSubmit = () => {
+    $state.uri = uri;
+
+    if (location.pathname !== action) {
+      goto(`${action}?${sortedQueryString($state)}`);
     }
-
-    goto(`${form.action}?${sortedQueryString(queryToState(query))}`);
   };
 </script>
 
-<form action="/preview" on:submit|preventDefault={handleSubmit}>
-  <input name="uri" value={uri} />
-  <button>Load</button>
+<form {action} on:submit|preventDefault={handleSubmit}>
+  <input name="uri" bind:value={uri} />
+  <button disabled={!uri?.trim()}>Load</button>
 </form>
 
 <style>

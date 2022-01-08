@@ -93,11 +93,11 @@ impl IntoResponse for SummaryResponse {
 
 #[derive(Error, Debug)]
 pub enum SummaryError {
-    #[error("failed to fetch feed")]
+    #[error("{0}")]
     FetchError(#[from] FetchError),
-    #[error("failed to parse feed")]
+    #[error("{0}")]
     ParseError(#[from] SummarizeError),
-    #[error("unexpected internal error")]
+    #[error("Unexpected internal error")]
     UnknownError(#[from] std::io::Error),
 }
 
@@ -105,8 +105,12 @@ impl IntoResponse for SummaryError {
     fn into_response(self) -> Response<BoxBody> {
         tracing::error!(?self);
         let body = Body::from(self.to_string());
+        let status = match self {
+            Self::UnknownError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            _ => StatusCode::BAD_GATEWAY,
+        };
         Response::builder()
-            .status(StatusCode::INTERNAL_SERVER_ERROR)
+            .status(status)
             .body(boxed(body))
             .expect("Failed to build error response")
     }
