@@ -18,7 +18,7 @@
   const start = new Date().toISOString();
 
   const state = queryStore();
-  const replayUrl = replayUrlStore(state);
+  const replayUrl = replayUrlStore(state, start);
   const rescheduled = rescheduledStore(feed, start, state);
 </script>
 
@@ -36,9 +36,15 @@
     <input type="hidden" name="uri" value={$state.uri} />
 
     <fieldset>
+      Custom Title:
+      <input name="title" bind:value={$state.title} placeholder={`${feed.title} (PodReplay)`} />
+    </fieldset>
+
+    <fieldset>
       A replayed episode every
       <input type="number" name="interval" bind:value={$state.interval} min={1} max={10} />
     </fieldset>
+
     <fieldset>
       <label
         ><input type="radio" name="freq" bind:group={$state.freq} value="m" />

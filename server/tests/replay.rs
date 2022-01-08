@@ -34,7 +34,7 @@ async fn returns_200_for_atom() {
     let app = test_app().await;
 
     let uri = format!(
-        "/replay?rule=1w&start=2021-10-23T01:09:00Z&now=2021-11-23T01:09:00Z&uri={}",
+        "/replay?rule=1w&start=2021-10-23T01:09:00Z&now=2021-11-23T01:09:00Z&title=My+Custom+Title&uri={}",
         mock_uri
     );
     let response = get(app, &uri).await;
@@ -42,21 +42,25 @@ async fn returns_200_for_atom() {
     let content_type = response
         .headers()
         .get("content-type")
-        .unwrap() // wat...
-        .to_str()
-        .unwrap() // the...
-        .to_string();
+        .unwrap() // eh
+        .to_str() // ok
+        .unwrap() // wait
+        .to_string(); // wat...?
 
     let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
 
     let expected = xml
         .replace(
-            "        <updated>2003-12-13T18:30:02Z</updated>",
-            "        <updated>2021-10-23T01:09:00Z</updated>",
-        )
-        .replace(
             "<feed xmlns=\"http://www.w3.org/2005/Atom\">",
             "<feed xmlns=\"http://www.w3.org/2005/Atom\">\n    <itunes:block>Yes</itunes:block>",
+        )
+        .replace(
+            "<title>Example Feed</title>",
+            "<title>My Custom Title</title>",
+        )
+        .replace(
+            "        <updated>2003-12-13T18:30:02Z</updated>",
+            "        <updated>2021-10-23T01:09:00Z</updated>",
         );
     assert_eq!(expected, body);
     assert_eq!(status, StatusCode::OK);
@@ -101,6 +105,10 @@ async fn returns_200_for_rss() {
         .replace(
             "<channel>",
             "<channel>\n        <itunes:block>Yes</itunes:block>",
+        )
+        .replace(
+            "<title>Scripting News</title>",
+            "<title>Scripting News (PodReplay)</title>",
         );
     assert_eq!(expected, body);
     assert_eq!(status, StatusCode::OK);

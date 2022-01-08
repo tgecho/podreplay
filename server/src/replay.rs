@@ -31,7 +31,7 @@ pub struct SummaryQuery {
     first: Option<DateTime<Utc>>,
     last: Option<DateTime<Utc>>,
     uri: String,
-    // TODO: Allow setting a custom feed title?
+    title: Option<String>,
     #[cfg(test)]
     now: DateTime<Utc>,
 }
@@ -105,7 +105,13 @@ pub async fn get<'a>(
         query.last,
     );
 
-    let body = rewrite_feed(&mut feed_reader, &replayed, true, !summary.marked_private)?;
+    let body = rewrite_feed(
+        &mut feed_reader,
+        &replayed,
+        true,
+        !summary.marked_private,
+        &query.title,
+    )?;
     let mut headers = prepare_headers(next_slot, fetched_etag);
     headers.append(
         "Content-Type",

@@ -46,6 +46,7 @@ pub fn rewrite_feed<R: BufRead>(
     reschedule: &Reschedule<String>,
     pretty: bool,
     mark_as_private: bool,
+    custom_title: &Option<String>,
 ) -> Result<Vec<u8>, RewriteError> {
     let reader = quick_xml::Reader::from_reader(xml);
     let mut output = Vec::new();
@@ -54,7 +55,7 @@ pub fn rewrite_feed<R: BufRead>(
     } else {
         quick_xml::Writer::new(&mut output)
     };
-    rewrite_feed_to_writer(reader, writer, reschedule, mark_as_private)?;
+    rewrite_feed_to_writer(reader, writer, reschedule, mark_as_private, custom_title)?;
     Ok(output)
 }
 
@@ -70,6 +71,7 @@ fn rewrite_feed_to_writer<R: BufRead, W: Write>(
     writer: quick_xml::Writer<W>,
     reschedule: &Reschedule<String>,
     mark_as_private: bool,
+    custom_title: &Option<String>,
 ) -> Result<(), RewriteError> {
     let mut writer = Writer::new(writer);
     let mut buf = Vec::new();
@@ -91,6 +93,17 @@ fn rewrite_feed_to_writer<R: BufRead, W: Write>(
                     writer.write(Event::Start(start.clone()))?;
                     if is_atom {
                         write_itunes_block(&mut writer)?;
+                    }
+                }
+                b"title" => {
+                    let mut buf = Vec::new();
+                    let existing_title = reader.read_text(start.name(), &mut buf).ok();
+                    let title = custom_title
+                        .clone()
+                        .or_else(|| existing_title.map(|title| format!("{} (PodReplay)", title)))
+                        .unwrap_or_else(|| "Untitled Podreplay Feed".to_string());
+                    for ev in element(start, title) {
+                        writer.write(ev)?;
                     }
                 }
                 _ => {
@@ -219,8 +232,12 @@ mod tests {
     use super::rewrite_feed;
     use pretty_assertions::assert_eq;
 
-    fn parse_feed_to_str(xml: &str, reschedule: &Reschedule<String>) -> String {
-        let output = rewrite_feed(xml.as_bytes(), reschedule, true, false).unwrap();
+    fn parse_feed_to_str(
+        xml: &str,
+        reschedule: &Reschedule<String>,
+        title: Option<String>,
+    ) -> String {
+        let output = rewrite_feed(xml.as_bytes(), reschedule, true, false, &title).unwrap();
         String::from_utf8(output).unwrap()
     }
 
@@ -231,11 +248,13 @@ mod tests {
             "urn:uuid:1225c695-cfb8-4ebb-aaaa-80da344efa6a".to_string(),
             parse_dt("2021-12-13T16:00:00"),
         )]);
-        let output = parse_feed_to_str(xml, &reschedule);
-        let expected = xml.replace(
-            "        <updated>2003-12-13T18:30:02Z</updated>",
-            "        <updated>2021-12-13T16:00:00Z</updated>",
-        );
+        let output = parse_feed_to_str(xml, &reschedule, Some("Hello World".to_string()));
+        let expected = xml
+            .replace(
+                "        <updated>2003-12-13T18:30:02Z</updated>",
+                "        <updated>2021-12-13T16:00:00Z</updated>",
+            )
+            .replace("<title>Example Feed</title>", "<title>Hello World</title>");
         assert_eq!(output, expected);
     }
 
@@ -254,7 +273,7 @@ mod tests {
                 parse_dt("2021-12-20T16:00:00"),
             ),
         ]);
-        let output = parse_feed_to_str(xml, &reschedule);
+        let output = parse_feed_to_str(xml, &reschedule, None);
         let expected = xml
             .replace(
                 "<pubDate>Mon, 30 Sep 2002 01:56:02 GMT</pubDate>",
@@ -263,6 +282,10 @@ mod tests {
             .replace(
                 "<pubDate>Sun, 29 Sep 2002 19:59:01 GMT</pubDate>",
                 "<pubDate>Mon, 20 Dec 2021 16:00:00 +0000</pubDate>",
+            )
+            .replace(
+                "<title>Scripting News</title>",
+                "<title>Scripting News (PodReplay)</title>",
             );
         assert_eq!(output, expected);
     }

@@ -14,7 +14,8 @@ export function sortedQueryString(s: State): string {
     rule && `rule=${rule}`,
     s.first && `first=${s.first}`,
     s.last && `last=${s.last}`,
-    s.uri && `uri=${s.uri}`,
+    s.title && `title=${encodeURIComponent(s.title)}`,
+    s.uri && `uri=${encodeURIComponent(s.uri)}`,
   ]
     .filter(Boolean)
     .join('&');
@@ -25,6 +26,7 @@ export function queryToState(query: URLSearchParams): State {
     uri: query.get('uri') || '',
     first: query.get('first'),
     last: query.get('last'),
+    title: query.get('title'),
     ...parseRule(query.get('rule')),
   };
 }
@@ -33,6 +35,7 @@ export type State = Rule & {
   uri: string;
   first: string | null;
   last: string | null;
+  title: string | null;
 };
 
 export function queryStore(): Writable<State> {
@@ -43,20 +46,18 @@ export function queryStore(): Writable<State> {
   store.subscribe(
     debounce((query) => {
       // TODO: tighten up the formatted date to not include sub second precision
-      // replayFeedUrl = `${location.origin}/replay?start=${start}&${queryString}`;
       const queryString = sortedQueryString(query);
-      // console.log(queryString);
-      goto(`${location.pathname}?${queryString}`);
+      goto(`${location.pathname}?${queryString}`, { replaceState: true, keepfocus: true });
     }, 100),
   );
 
   return store;
 }
 
-export function replayUrlStore(queryStore: Readable<State>) {
+export function replayUrlStore(queryStore: Readable<State>, start: string) {
   return derived(queryStore, (query) => {
     const queryString = sortedQueryString(query);
-    return `${location.origin}/replay?start=${'start'}&${queryString}`;
+    return `${location.origin}/replay?start=${start}&${queryString}`;
   });
 }
 
