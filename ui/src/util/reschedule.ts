@@ -1,29 +1,30 @@
 import initWasm, * as wasm from 'podreplay_lib_wasm';
 import { fromUnixTime, getUnixTime } from 'date-fns';
 import { once } from 'lodash-es';
+import type { State } from './state';
+import type { FeedSummary } from './fetchFeedSummary';
+import { ruleToString } from './parseRule';
 
-const init = once(initWasm);
+export const init = once(initWasm);
 
-export async function reschedule(
-  items: { timestamp: string }[],
-  rule: string,
-  start: string,
-  first?: string,
-  last?: string,
-): Promise<(null | Date)[]> {
-  await init();
+export type Rescheduled = (Date | null)[];
+
+export function reschedule(feed: FeedSummary, start: string, state: State): Rescheduled {
+  const { items } = feed;
 
   const timestamps = new Float64Array(items.length);
   for (let i = 0; i < items.length; i++) {
     timestamps[i] = getUnixTime(new Date(items[i].timestamp));
   }
 
-  const rescheduled = await wasm.reschedule(
+  const rule = ruleToString(state);
+
+  const rescheduled = wasm.reschedule(
     timestamps,
     rule,
     getUnixTime(new Date(start)),
-    first ? getUnixTime(new Date(first)) : undefined,
-    last ? getUnixTime(new Date(last)) : undefined,
+    state.first ? getUnixTime(new Date(state.first)) : undefined,
+    state.last ? getUnixTime(new Date(state.last)) : undefined,
   );
 
   const results = [];
