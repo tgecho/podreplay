@@ -23,11 +23,36 @@
 
 <form {action} on:submit|preventDefault={handleSubmit}>
   <input name="uri" bind:value={uri} />
-  <button disabled={!uri?.trim()}>Load</button>
+  <button disabled={!uri?.trim()}>Load Podcast</button>
 </form>
 
 <style>
-  input {
+  form {
     width: 100%;
+    display: flex;
+    align-items: stretch;
+    flex: 1 1 30em;
+  }
+  input {
+    font-size: 1em;
+    flex: 1 1 100%;
+    border-radius: 0.75em 0 0 0.75em;
+    padding: 0.35em;
+    border: 1px solid var(--main-fg-color);
+    background: var(--main-bg-color);
+    color: var(--main-fg-color);
+  }
+  button {
+    flex: 1 0 7.5em;
+    border-radius: 0 0.75em 0.75em 0;
+    background: var(--accent-bg-color);
+    color: var(--main-fg-color);
+    border: 1px solid var(--main-fg-color);
+    border-left: none;
+    padding: 0 0.1em 0 0;
+    cursor: pointer;
+  }
+  button:hover {
+    filter: brightness(110%);
   }
 </style>
