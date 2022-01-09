@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Header from '../components/Header.svelte';
   import FeedForm from '../components/FeedForm.svelte';
 </script>
 
@@ -6,4 +7,8 @@
   <title>PodReplay</title>
 </svelte:head>
 
-<FeedForm />
+<Header>
+  <FeedForm />
+</Header>
+
+<p>TODO: Add some explanatory text</p>
