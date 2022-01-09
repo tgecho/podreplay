@@ -22,7 +22,7 @@
 </script>
 
 <form {action} on:submit|preventDefault={handleSubmit}>
-  <input name="uri" bind:value={uri} />
+  <input name="uri" type="url" bind:value={uri} />
   <button disabled={!uri?.trim()}>Load Podcast</button>
 </form>
 
