@@ -41,6 +41,7 @@
     border: 1px solid var(--main-fg-color);
     background: var(--main-bg-color);
     color: var(--main-fg-color);
+    margin: 0;
   }
   button {
     flex: 1 0 7.5em;
@@ -51,8 +52,6 @@
     border-left: none;
     padding: 0 0.1em 0 0;
     cursor: pointer;
-  }
-  button:hover {
-    filter: brightness(110%);
+    margin: 0;
   }
 </style>
