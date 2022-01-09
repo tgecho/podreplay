@@ -35,18 +35,19 @@ FROM node:17 AS frontend
 
 WORKDIR /usr/src
 
-RUN npm install -g pnpm
+RUN npm install -g pnpm@^6.25.1 \
+    && npm config set store-dir /usr/src/ui/node_modules/.pnpm-store
 COPY --from=server_and_wasm /usr/src/lib_wasm/pkg ./lib_wasm/pkg
 COPY ui ./ui
 WORKDIR /usr/src/ui
-RUN --mount=type=cache,target=/usr/src/node_modules \
+RUN --mount=type=cache,target=/usr/src/ui/node_modules \
     pnpm install
-RUN pnpm build
+RUN --mount=type=cache,target=/usr/src/ui/node_modules \
+    pnpm build
 
 ######################
 # Build final container
 FROM ubuntu:latest AS app
-
 
 WORKDIR /app
 
