@@ -9,7 +9,7 @@ export const init = once(initWasm);
 
 export type Rescheduled = (Date | null)[];
 
-export function reschedule(feed: FeedSummary, start: string, state: State): Rescheduled {
+export function reschedule(feed: FeedSummary, state: State): Rescheduled {
   const { items } = feed;
 
   const timestamps = new Float64Array(items.length);
@@ -22,7 +22,7 @@ export function reschedule(feed: FeedSummary, start: string, state: State): Resc
   const rescheduled = wasm.reschedule(
     timestamps,
     rule,
-    getUnixTime(new Date(start)),
+    getUnixTime(state.start),
     state.first ? getUnixTime(new Date(state.first)) : undefined,
     state.last ? getUnixTime(new Date(state.last)) : undefined,
   );

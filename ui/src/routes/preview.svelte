@@ -9,8 +9,7 @@
 
   const state = queryStore();
   const feed = feedSummaryStore(state);
-  const start = new Date().toISOString();
-  const replayUrl = replayUrlStore(state, start);
+  const replayUrl = replayUrlStore(state);
 </script>
 
 <svelte:head>
@@ -30,12 +29,18 @@
 {#await $feed}
   Loading feed...
 {:then feed}
-  <ConfigureForm {feed} {state} />
-  <SubscribeLinks url={$replayUrl} />
-  <ItemPreview {feed} {start} {state} />
+  <div class="top">
+    <ConfigureForm {feed} {state} />
+    <SubscribeLinks url={$replayUrl} />
+  </div>
+  <ItemPreview {feed} {state} />
 {:catch error}
   Error: {error}
 {/await}
 
 <style>
+  .top {
+    display: flex;
+    flex-wrap: wrap;
+  }
 </style>

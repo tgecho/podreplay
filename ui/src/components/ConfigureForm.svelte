@@ -3,6 +3,7 @@
   import type { Writable } from 'svelte/store';
   import type { State } from '../util/state';
   import type { FeedSummary } from '../util/fetchFeedSummary';
+  import { formatForInput, formatForUrl } from '../util/dates';
 
   export let feed: FeedSummary;
   export let state: Writable<State>;
@@ -18,6 +19,13 @@
       $state.title = '';
     }
   }
+
+  $: startString = formatForInput($state.start);
+  function updateStart(ev: { currentTarget: HTMLInputElement }) {
+    $state.start = new Date(ev.currentTarget.value);
+  }
+
+  $: s = $state.interval > 1 ? 's' : '';
 </script>
 
 <form target="/preview" on:submit|preventDefault>
@@ -32,6 +40,11 @@
       on:focus={onTitleFocus}
       on:blur={onTitleBlur}
     />
+  </label>
+
+  <label class="start">
+    <h3>Starting</h3>
+    <input type="datetime-local" value={startString} on:change={updateStart} />
   </label>
 
   <div class="schedule">
@@ -49,18 +62,18 @@
         </label>
       </fieldset>
 
-      <fieldset class="freq" class:plural={$state.interval > 1}>
+      <fieldset class="freq">
         <label class:selected={$state.freq === 'm'}>
           <input type="radio" name="freq" bind:group={$state.freq} value="m" />
-          Month
+          Month{s}
         </label>
         <label class:selected={$state.freq === 'w'}>
           <input type="radio" name="freq" bind:group={$state.freq} value="w" />
-          Week
+          Week{s}
         </label>
         <label class:selected={$state.freq === 'd'}>
           <input type="radio" name="freq" bind:group={$state.freq} value="d" />
-          Day
+          Day{s}
         </label>
       </fieldset>
 
@@ -101,20 +114,32 @@
 </form>
 
 <style>
-  h2 {
-    text-align: center;
-    font-size: 1.25rem;
-    margin: 1.5em 0 0.5em;
+  form {
+    flex: 1 1 75%;
   }
   h3 {
     font-size: 1rem;
+    margin: 0.6em 0 0.5em;
   }
-  label,
+  label h3 {
+    display: inline-block;
+  }
+  input {
+    border: none;
+    border-bottom: 1px dashed var(--accent-fg-color);
+    border-radius: 0.5em;
+    padding: 0.35em;
+    color: var(--main-fg-color);
+    font-size: 1em;
+    margin: 0;
+    background: none;
+  }
   input[type='radio'],
   input[type='checkbox'] {
-    cursor: pointer;
+    margin: 0.2em 0.25em;
   }
-  .title {
+  .title,
+  .start {
     position: relative;
     margin: 0.75em 0;
     align-items: center;
@@ -124,15 +149,6 @@
     gap: 0.5em;
   }
   .title input {
-    font-size: 1.5em;
-    border: none;
-    border-bottom: 1px dashed var(--accent-fg-color);
-    border-radius: 0.5em;
-    padding: 0.35em;
-    color: var(--main-fg-color);
-    font-size: 1em;
-    margin: 0;
-    background: none;
     flex: 1 1 20em;
   }
   .title input::placeholder {
@@ -169,13 +185,5 @@
     align-items: baseline;
     flex-wrap: wrap;
     justify-content: center;
-  }
-  fieldset.freq label::after {
-    content: 's';
-    opacity: 0;
-  }
-  fieldset.freq.plural label::after {
-    content: 's';
-    opacity: 1;
   }
 </style>

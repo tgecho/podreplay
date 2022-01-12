@@ -5,10 +5,12 @@ import { derived, get, writable } from 'svelte/store';
 import type { Writable, Readable } from 'svelte/store';
 import { parseRule, ruleToString } from './parseRule';
 import type { Rule } from './parseRule';
+import { formatForUrl } from './dates';
 
 export function sortedQueryString(s: State): string {
   const rule = ruleToString(s);
   return [
+    s.start && `start=${s.start.toISOString()}`,
     rule && `rule=${rule}`,
     s.first && `first=${s.first}`,
     s.last && `last=${s.last}`,
@@ -22,6 +24,7 @@ export function sortedQueryString(s: State): string {
 export function queryToState(query: URLSearchParams): State {
   return {
     uri: query.get('uri') || '',
+    start: new Date(Date.parse(query.get('start') || '') || Date.now()),
     first: query.get('first'),
     last: query.get('last'),
     title: query.get('title'),
@@ -31,6 +34,7 @@ export function queryToState(query: URLSearchParams): State {
 
 export type State = Rule & {
   uri: string;
+  start: Date;
   first: string | null;
   last: string | null;
   title: string | null;
@@ -56,8 +60,9 @@ export function queryStore(): Writable<State> {
   return store;
 }
 
-export function replayUrlStore(queryStore: Readable<State>, start: string) {
+export function replayUrlStore(queryStore: Readable<State>) {
   return derived(queryStore, (query) => {
+    const start = formatForUrl(query.start);
     const queryString = sortedQueryString(query);
     return `${location.origin}/replay?start=${start}&${queryString}`;
   });
