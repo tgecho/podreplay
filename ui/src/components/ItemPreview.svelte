@@ -9,10 +9,9 @@
   init().then(() => (ready = true));
 
   export let feed: FeedSummary;
-  export let start: string;
   export let state: Writable<State>;
 
-  $: rescheduled = ready ? reschedule(feed, start, $state) : [];
+  $: rescheduled = ready ? reschedule(feed, $state) : [];
 </script>
 
 <table class="timeline">
@@ -20,7 +19,7 @@
     <tr>
       <th class="first"><span>Choose a first episode <sup>(optional)</sup></span></th>
       <th class="title">Title</th>
-      <th class="original">Original</th>
+      <th class="original">Originally</th>
       <th class="rescheduled">Rescheduled</th>
       <th class="last"><span>Choose a last episode <sup>(optional)</sup></span></th>
     </tr>
@@ -172,33 +171,53 @@
   .constrain input {
     margin: 0;
   }
-  /* @media (max-width: 30em) {
-    table {
-      display: block;
-    }
+  @media (max-width: 30em) {
     thead {
+      z-index: -1;
       display: none;
     }
-    tr {
+    thead .title,
+    thead .original,
+    thead .rescheduled {
+      display: none;
+    }
+    tbody {
+      display: flex;
+      flex-direction: column;
+    }
+    tbody tr {
+      position: relative;
       display: flex;
       flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    tbody .first,
+    tbody .last {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%) scale(1.4);
+    }
+    tbody .first {
+      left: -0.5em;
+    }
+    tbody .last {
+      right: -0.5em;
     }
     .title {
       flex: 1 1 100%;
       font-weight: bold;
       text-align: left;
+      margin: 0 1.5em;
     }
-    .original::before {
-      content: 'Originally: ';
+    .rescheduled {
+      margin-right: 1.5em;
     }
     .rescheduled::before {
-      content: 'Replay on: ';
-    }
-    .skipped .rescheduled::before {
-      content: 'Skipped';
+      content: '➠';
+      margin-right: 0.5em;
     }
     .constrain {
       display: flex;
     }
-  } */
+  }
 </style>
