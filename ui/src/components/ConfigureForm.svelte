@@ -121,18 +121,9 @@
     font-size: 1rem;
     margin: 0.6em 0 0.5em;
   }
-  label h3 {
-    display: inline-block;
-  }
   input {
-    border: none;
-    border-bottom: 1px dashed var(--accent-fg-color);
-    border-radius: 0.5em;
-    padding: 0.35em;
-    color: var(--main-fg-color);
     font-size: 1em;
     margin: 0;
-    background: none;
   }
   input[type='radio'],
   input[type='checkbox'] {
@@ -144,7 +135,7 @@
     margin: 0.75em 0;
     align-items: center;
     flex-wrap: wrap;
-    justify-content: center;
+    justify-content: flex-start;
     display: flex;
     gap: 0.5em;
   }
@@ -160,23 +151,22 @@
     gap: 0.5em;
     flex-wrap: wrap;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
   }
   .radiosets {
     display: flex;
     gap: 0.5em;
     flex-wrap: wrap;
     flex: 1 20em;
-    justify-content: center;
+    justify-content: flex-start;
   }
   fieldset {
-    border: none;
     margin: 0;
     padding: 0;
-    border-bottom: 1px dashed var(--accent-fg-color);
-    border-radius: 0.5em;
+    border: 1px dotted var(--accent-fg-color);
+    border-radius: 0.2em;
+    background: #fff;
     display: flex;
-    /* flex: 1 1 50%; */
   }
   fieldset label {
     padding: 0.25em 0.5em;

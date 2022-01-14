@@ -36,22 +36,17 @@
   input {
     font-size: 1em;
     flex: 1 1 100%;
-    border-radius: 0.75em 0 0 0.75em;
     padding: 0.35em;
-    border: 1px solid var(--main-fg-color);
-    background: var(--main-bg-color);
     color: var(--main-fg-color);
     margin: 0;
   }
   button {
     flex: 1 0 7.5em;
-    border-radius: 0 0.75em 0.75em 0;
     background: var(--accent-bg-color);
     color: var(--main-fg-color);
     border: 1px solid var(--main-fg-color);
-    border-left: none;
     padding: 0 0.1em 0 0;
     cursor: pointer;
-    margin: 0;
+    margin: 0 0 0 -1px;
   }
 </style>
