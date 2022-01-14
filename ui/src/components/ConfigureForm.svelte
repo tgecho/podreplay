@@ -22,7 +22,8 @@
 
   $: startString = formatForInput($state.start);
   function updateStart(ev: { currentTarget: HTMLInputElement }) {
-    $state.start = new Date(ev.currentTarget.value);
+    const start = new Date(ev.currentTarget.value || Date.now());
+    $state.start = isNaN(start.getTime()) ? new Date() : start;
   }
 
   $: s = $state.interval > 1 ? 's' : '';

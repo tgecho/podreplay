@@ -10,7 +10,7 @@ import { formatForUrl } from './dates';
 export function sortedQueryString(s: State): string {
   const rule = ruleToString(s);
   return [
-    s.start && `start=${s.start.toISOString()}`,
+    s.start && `start=${formatForUrl(s.start)}`,
     rule && `rule=${rule}`,
     s.first && `first=${s.first}`,
     s.last && `last=${s.last}`,
@@ -62,8 +62,7 @@ export function queryStore(): Writable<State> {
 
 export function replayUrlStore(queryStore: Readable<State>) {
   return derived(queryStore, (query) => {
-    const start = formatForUrl(query.start);
     const queryString = sortedQueryString(query);
-    return `${location.origin}/replay?start=${start}&${queryString}`;
+    return `${location.origin}/replay?${queryString}`;
   });
 }
