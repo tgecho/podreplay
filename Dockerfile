@@ -1,6 +1,6 @@
 #######################
 # Build Server and WASM
-FROM rust:1.57 AS server_and_wasm
+FROM rust:1.58 AS server_and_wasm
 
 WORKDIR /usr/src
 
@@ -35,7 +35,7 @@ FROM node:17 AS frontend
 
 WORKDIR /usr/src
 
-RUN npm install -g pnpm@^6.25.1 \
+RUN npm install -g pnpm \
     && npm config set store-dir /usr/src/ui/node_modules/.pnpm-store
 COPY --from=server_and_wasm /usr/src/lib_wasm/pkg ./lib_wasm/pkg
 COPY ui ./ui
