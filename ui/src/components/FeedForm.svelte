@@ -41,12 +41,14 @@
     margin: 0;
   }
   button {
-    flex: 1 0 7.5em;
+    flex: 1 1 7.5em;
+    white-space: nowrap;
     background: var(--accent-bg-color);
     color: var(--main-fg-color);
     border: 1px solid var(--main-fg-color);
-    padding: 0 0.1em 0 0;
+    padding: 0 0.5em;
     cursor: pointer;
     margin: 0 0 0 -1px;
+    font-size: 0.8em;
   }
 </style>
