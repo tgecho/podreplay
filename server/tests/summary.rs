@@ -35,7 +35,7 @@ async fn returns_200() {
 
     let app = test_app().await;
 
-    let uri = format!("/summary?uri={}", mock_uri);
+    let uri = format!("/summary?uri={mock_uri}");
     let response = get(app, &uri).await;
     let status = response.status();
 
@@ -75,14 +75,13 @@ async fn follows_link_meta_in_html() {
                 <html>
                     <head>
                         <title>The RSS Blog</title>
-                        <link rel="alternate" type="application/rss+xml" title="RSS" href="{}" />
+                        <link rel="alternate" type="application/rss+xml" title="RSS" href="{mock_xml_uri}" />
                     </head>
                     <body>
                         <!-- the web page's contents -->
                     </body>
                 </html>
-            "#,
-            mock_xml_uri
+            "#
         ))
         .create();
     let mock_xml = mockito::mock("GET", "/hello.xml")
@@ -91,7 +90,7 @@ async fn follows_link_meta_in_html() {
 
     let app = test_app().await;
 
-    let uri = format!("/summary?uri={}", mock_html_uri);
+    let uri = format!("/summary?uri={mock_html_uri}");
     let response = get(app, &uri).await;
     let status = response.status();
 

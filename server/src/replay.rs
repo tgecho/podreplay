@@ -68,7 +68,7 @@ pub async fn get<'a>(
     let fetched = http
         .get_feed(
             &query.uri,
-            feed_request_etag.map(|etag| format!(r#""{}""#, etag)),
+            feed_request_etag.map(|etag| format!(r#""{etag}""#)),
         )
         .await?;
 
@@ -153,9 +153,9 @@ fn prepare_headers(next_slot: Option<DateTime<Utc>>, fetched_etag: Option<String
         let etag = if let Some(next_dt) =
             next_slot.map(|dt| dt.to_rfc3339_opts(SecondsFormat::Secs, true))
         {
-            format!(r#""{}|{}""#, next_dt, feed_etag)
+            format!(r#""{next_dt}|{feed_etag}""#)
         } else {
-            format!(r#""{}""#, feed_etag)
+            format!(r#""{feed_etag}""#)
         };
         if let Ok(etag) = HeaderValue::from_str(&etag) {
             headers.insert("Etag", etag);

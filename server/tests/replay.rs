@@ -34,8 +34,7 @@ async fn returns_200_for_atom() {
     let app = test_app().await;
 
     let uri = format!(
-        "/replay?rule=1w&start=2021-10-23T01:09:00Z&now=2021-11-23T01:09:00Z&title=My+Custom+Title&uri={}",
-        mock_uri
+        "/replay?rule=1w&start=2021-10-23T01:09:00Z&now=2021-11-23T01:09:00Z&title=My+Custom+Title&uri={mock_uri}"
     );
     let response = get(app, &uri).await;
     let status = response.status();
@@ -78,8 +77,7 @@ async fn returns_200_for_rss() {
     let app = test_app().await;
 
     let uri = format!(
-        "/replay?rule=1w&start=2021-10-23T01:09:00Z&now=2021-11-23T01:09:00Z&uri={}",
-        mock_uri
+        "/replay?rule=1w&start=2021-10-23T01:09:00Z&now=2021-11-23T01:09:00Z&uri={mock_uri}"
     );
     let response = get(app, &uri).await;
     let status = response.status();
@@ -160,8 +158,7 @@ async fn returns_304_if_feed_returns_304() {
     let app = test_app().await;
 
     let uri = format!(
-        "/replay?rule=1w&start=2021-10-23T01:09:00Z&now=2021-10-23T01:09:00Z&uri={}",
-        mock_uri
+        "/replay?rule=1w&start=2021-10-23T01:09:00Z&now=2021-10-23T01:09:00Z&uri={mock_uri}"
     );
 
     let response = app

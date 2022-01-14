@@ -100,7 +100,7 @@ fn rewrite_feed_to_writer<R: BufRead, W: Write>(
                     let existing_title = reader.read_text(start.name(), &mut buf).ok();
                     let title = custom_title
                         .clone()
-                        .or_else(|| existing_title.map(|title| format!("{} (PodReplay)", title)))
+                        .or_else(|| existing_title.map(|title| format!("{title} (PodReplay)")))
                         .unwrap_or_else(|| "Untitled Podreplay Feed".to_string());
                     for ev in element(start, title) {
                         writer.write(ev)?;

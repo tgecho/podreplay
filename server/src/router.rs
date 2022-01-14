@@ -16,7 +16,7 @@ pub fn make_router(db: Db, http: HttpClient, config: &Config) -> Router {
                     // TODO: Get 404s returning when appropriate
                     (
                         StatusCode::INTERNAL_SERVER_ERROR,
-                        format!("Unhandled internal error: {}", error),
+                        format!("Unhandled internal error: {error}"),
                     )
                 },
             ),
