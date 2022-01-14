@@ -117,10 +117,6 @@
   form {
     flex: 1 1 75%;
   }
-  h3 {
-    font-size: 1rem;
-    margin: 0.6em 0 0.5em;
-  }
   input {
     font-size: 1em;
     margin: 0;
@@ -152,6 +148,7 @@
     flex-wrap: wrap;
     align-items: center;
     justify-content: flex-start;
+    margin: 0.75em 0;
   }
   .radiosets {
     display: flex;

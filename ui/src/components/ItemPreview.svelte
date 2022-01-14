@@ -14,13 +14,14 @@
   $: rescheduled = ready ? reschedule(feed, $state) : [];
 </script>
 
+<h3>Preview</h3>
 <table class="timeline">
   <thead>
     <tr>
       <th class="first"><span>Choose a first episode <sup>(optional)</sup></span></th>
       <th class="title">Title</th>
-      <th class="original">Originally</th>
       <th class="rescheduled">Rescheduled</th>
+      <th class="original">Originally</th>
       <th class="last"><span>Choose a last episode <sup>(optional)</sup></span></th>
     </tr>
   </thead>
@@ -36,9 +37,6 @@
           {/if}
         </td>
         <th class="title" title={item.title}>{item.title}</th>
-        <td class="original">
-          <time datetime={item.timestamp}>{format(new Date(item.timestamp), 'MMM do, y')}</time>
-        </td>
         <td class="rescheduled">
           {#if rescheduled[index]}
             <time datetime={rescheduled[index].toISOString()}
@@ -47,6 +45,9 @@
           {:else}
             Skip
           {/if}
+        </td>
+        <td class="original">
+          <time datetime={item.timestamp}>{format(new Date(item.timestamp), 'MMM do, y')}</time>
         </td>
         <td class="constrain last">
           {#if item.timestamp == $state.last}
@@ -73,6 +74,11 @@
     padding: 0.2em 0.3em;
     white-space: nowrap;
   }
+
+  td.first,
+  td.last {
+    padding: 0.2em 0;
+  }
   thead {
     position: sticky;
     top: 0;
@@ -84,6 +90,7 @@
   thead .first,
   thead .last {
     vertical-align: middle;
+    position: relative;
   }
   thead .first sup,
   thead .last sup {
@@ -171,53 +178,79 @@
   .constrain input {
     margin: 0;
   }
-  @media (max-width: 30em) {
+  @media (max-width: 45em) {
+    table {
+      display: block;
+      margin-top: -1em;
+    }
     thead {
-      z-index: -1;
-      display: none;
+      display: block;
+    }
+    thead tr {
+      display: block;
     }
     thead .title,
     thead .original,
     thead .rescheduled {
-      display: none;
+      visibility: hidden;
+    }
+    thead .first,
+    thead .last {
+      width: 1.2em;
+      background: none;
+    }
+    thead .last {
+      right: 0;
+      position: absolute;
     }
     tbody {
-      display: flex;
-      flex-direction: column;
+      display: block;
     }
     tbody tr {
       position: relative;
       display: flex;
       flex-wrap: wrap;
-      justify-content: flex-end;
+      width: 100%;
     }
-    tbody .first,
-    tbody .last {
-      position: absolute;
-      top: 50%;
-      transform: translateY(-50%) scale(1.4);
-    }
+
     tbody .first {
-      left: -0.5em;
+      order: 1;
+      flex: 0 0 1.2em;
+    }
+    tbody .title {
+      order: 2;
+      flex: 0 0 calc(100% - 2.4em);
+    }
+    tbody .rescheduled {
+      order: 4;
+    }
+    tbody .original {
+      order: 5;
     }
     tbody .last {
-      right: -0.5em;
+      order: 3;
+      flex: 0 0 1.2em;
     }
-    .title {
-      flex: 1 1 100%;
-      font-weight: bold;
-      text-align: left;
-      margin: 0 1.5em;
+
+    .original {
+      opacity: 0.5;
+    }
+    .original::before {
+      content: '(was ';
+    }
+    .original::after {
+      content: ')';
     }
     .rescheduled {
-      margin-right: 1.5em;
+      margin-left: 1.2em;
     }
-    .rescheduled::before {
-      content: '➠';
-      margin-right: 0.5em;
+  }
+  @media (max-width: 30em) {
+    tbody tr {
+      justify-content: center;
     }
-    .constrain {
-      display: flex;
+    .rescheduled {
+      margin-left: 0;
     }
   }
 </style>
