@@ -1,0 +1,11 @@
+{
+  "name": "podreplay",
+  "version": "0.0.1",
+  "scripts": {
+    "preinstall": "npx only-allow pnpm",
+    "dev": "cd ui; pnpm dev"
+  },
+  "devDependencies": {},
+  "type": "module",
+  "dependencies": {}
+}

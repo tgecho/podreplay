@@ -1,5 +1,5 @@
 {
-  "name": "ui",
+  "name": "podreplay_ui",
   "version": "0.0.1",
   "scripts": {
     "preinstall": "npx only-allow pnpm",
@@ -32,7 +32,7 @@
   "dependencies": {
     "date-fns": "^2.28.0",
     "lodash-es": "^4.17.21",
-    "podreplay_lib_wasm": "link:../lib_wasm/pkg",
+    "podreplay_lib_wasm": "workspace:*",
     "tslib": "^2.3.1"
   }
 }
