@@ -28,7 +28,7 @@
 
 {#await $feed}
   <div class="loading">
-    <img src="hourglass.svg" width="50px" alt="hourglass icon" />
+    <img src="/hourglass.svg" width="50px" alt="hourglass icon" />
     &nbsp;&nbsp;Loading Feed...
   </div>
 {:then feed}

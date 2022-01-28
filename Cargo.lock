@@ -1412,7 +1412,6 @@ name = "podreplay_lib_wasm"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "chronoutil",
  "console_error_panic_hook",
  "podreplay_lib",
  "wasm-bindgen",

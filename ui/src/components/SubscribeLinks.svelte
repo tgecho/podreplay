@@ -76,18 +76,18 @@
   }
 
   .subscribe::before {
-    background-image: url(rss.svg);
+    background-image: url(/rss.svg);
   }
   .copy::before {
-    background-image: url(copy.svg);
+    background-image: url(/copy.svg);
     background-size: 1.6em;
     margin-right: 1px;
   }
   .copied::before {
-    background-image: url(ok-circle.svg);
+    background-image: url(/ok-circle.svg);
   }
   .share::before {
-    background-image: url(share-ios.svg);
+    background-image: url(/share-ios.svg);
     background-size: 1.7em;
   }
 </style>

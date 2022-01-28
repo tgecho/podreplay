@@ -18,7 +18,7 @@
   h1::before {
     content: ' ';
     display: inline-block;
-    background: url(history-heavy.svg);
+    background: url(/history-heavy.svg);
     background-size: contain;
     height: 1.25em;
     width: 1.25em;

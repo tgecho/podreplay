@@ -38,6 +38,7 @@ WORKDIR /usr/src
 RUN npm install -g pnpm \
     && npm config set store-dir /usr/src/ui/node_modules/.pnpm-store
 COPY --from=server_and_wasm /usr/src/lib_wasm/pkg ./lib_wasm/pkg
+COPY pnpm-*.yaml ./
 COPY ui ./ui
 WORKDIR /usr/src/ui
 RUN --mount=type=cache,target=/usr/src/ui/node_modules \
