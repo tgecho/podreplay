@@ -3,13 +3,12 @@
   import FeedForm from '../components/FeedForm.svelte';
   import ItemPreview from '../components/ItemPreview.svelte';
   import ConfigureForm from '../components/ConfigureForm.svelte';
-  import { queryStore, replayUrlStore } from '../util/state';
+  import { queryStore } from '../util/state';
   import { feedSummaryStore } from '../util/fetchFeedSummary';
   import SubscribeLinks from '../components/SubscribeLinks.svelte';
 
   const state = queryStore();
   const feed = feedSummaryStore(state);
-  const replayUrl = replayUrlStore(state);
 </script>
 
 <svelte:head>
@@ -31,7 +30,7 @@
 {:then feed}
   <div class="top">
     <ConfigureForm {feed} {state} />
-    <SubscribeLinks url={$replayUrl} />
+    <SubscribeLinks {state} />
   </div>
   <ItemPreview {feed} {state} />
 {:catch error}
@@ -42,5 +41,6 @@
   .top {
     display: flex;
     flex-wrap: wrap;
+    justify-content: stretch;
   }
 </style>

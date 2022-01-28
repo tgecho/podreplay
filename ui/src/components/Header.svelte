@@ -1,5 +1,5 @@
 <header>
-  <h1>PodReplay</h1>
+  <h1><a href="/">PodReplay</a></h1>
   <slot />
 </header>
 

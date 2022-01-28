@@ -59,10 +59,3 @@ export function queryStore(): Writable<State> {
 
   return store;
 }
-
-export function replayUrlStore(queryStore: Readable<State>) {
-  return derived(queryStore, (query) => {
-    const queryString = sortedQueryString(query);
-    return `${location.origin}/replay?${queryString}`;
-  });
-}
