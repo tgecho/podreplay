@@ -32,9 +32,10 @@
 <form target="/preview" on:submit|preventDefault>
   <input type="hidden" name="uri" value={$state.uri} />
 
-  <label class="title">
-    <h3>Title</h3>
+  <label class="item">
+    <h3 class="label">Title</h3>
     <input
+      class="input"
       name="title"
       bind:value={$state.title}
       placeholder={`${feed.title} (PodReplay)`}
@@ -43,14 +44,14 @@
     />
   </label>
 
-  <label class="start">
-    <h3>Starting</h3>
-    <input type="datetime-local" value={startString} on:change={updateStart} />
+  <label class="item">
+    <h3 class="label">Starting</h3>
+    <input class="input" type="datetime-local" value={startString} on:change={updateStart} />
   </label>
 
-  <div class="schedule">
-    <h3>Schedule an episode every</h3>
-    <div class="radiosets">
+  <div class="item">
+    <h3 class="label"><span>Schedule an</span> <span>episode every</span></h3>
+    <div class="radiosets input">
       <fieldset class="interval">
         <label class:selected={$state.interval === 1}>
           <input type="radio" name="interval" bind:group={$state.interval} value={1} /> One
@@ -116,7 +117,10 @@
 
 <style>
   form {
-    flex: 1 1 75%;
+    flex: 2 1 30em;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5em;
   }
   input {
     font-size: 1em;
@@ -126,31 +130,37 @@
   input[type='checkbox'] {
     margin: 0.2em 0.25em;
   }
-  .title,
-  .start {
-    position: relative;
-    margin: 0.75em 0;
-    align-items: center;
-    flex-wrap: wrap;
-    justify-content: flex-start;
-    display: flex;
-    gap: 0.5em;
-  }
-  .title input {
-    flex: 1 1 20em;
-  }
-  .title input::placeholder {
+  input::placeholder {
     color: var(--accent-fg-color);
   }
 
-  .schedule {
+  .item {
     display: flex;
     gap: 0.5em;
     flex-wrap: wrap;
-    align-items: center;
-    justify-content: flex-start;
-    margin: 0.75em 0;
+    justify-content: stretch;
   }
+  .label {
+    flex: 0 1 120px;
+    text-align: right;
+    margin: 0.4em 0;
+  }
+  .label span {
+    white-space: nowrap;
+  }
+  .input {
+    flex: 1 1 60%;
+  }
+  @media (max-width: 32em) {
+    .item {
+      display: block;
+    }
+    .label {
+      text-align: left;
+      margin: 0.6em 0;
+    }
+  }
+
   .radiosets {
     display: flex;
     gap: 0.5em;

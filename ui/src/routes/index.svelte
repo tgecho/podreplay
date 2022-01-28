@@ -1,6 +1,7 @@
 <script lang="ts">
   import Header from '../components/Header.svelte';
   import FeedForm from '../components/FeedForm.svelte';
+  import Footer from '../components/Footer.svelte';
 </script>
 
 <svelte:head>
@@ -12,3 +13,5 @@
 </Header>
 
 <p>TODO: Add some explanatory text</p>
+
+<Footer />
