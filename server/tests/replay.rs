@@ -4,7 +4,9 @@ use axum::{
     Router,
 };
 use hyper::{Response, StatusCode};
-use podreplay::{config::Config, db::Db, fetch::HttpClient, router::make_router};
+use podreplay::{
+    config::Config, db::Db, fetch::HttpClient, proxy::ProxyClient, router::make_router,
+};
 use pretty_assertions::assert_eq;
 use tower::util::ServiceExt;
 use tracing_test::traced_test;
@@ -14,8 +16,9 @@ async fn test_app() -> Router {
     let db = Db::new("sqlite::memory:".to_string()).await.unwrap();
     db.migrate().await.unwrap();
 
-    let http = HttpClient::new(config.user_agent.clone());
-    make_router(db, http, &config)
+    let http = HttpClient::new(config.user_agent.clone(), None);
+    let proxy = ProxyClient::new();
+    make_router(db, http, proxy, &config)
 }
 
 async fn get(app: Router, uri: &str) -> Response<BoxBody> {
