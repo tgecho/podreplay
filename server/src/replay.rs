@@ -1,15 +1,18 @@
 #![allow(clippy::large_enum_variant)]
 
-use std::io::{Cursor, Seek};
+use std::{
+    io::{Cursor, Seek},
+    net::SocketAddr,
+};
 
 use axum::{
     body::{boxed, Body, BoxBody},
-    extract::{Extension, Query},
+    extract::{ConnectInfo, Extension, Query},
     response::IntoResponse,
 };
 use chrono::{DateTime, SecondsFormat, Utc};
 use headers::{HeaderMap, HeaderValue};
-use hyper::{Response, StatusCode};
+use hyper::{Request, Response, StatusCode};
 use lazy_static::lazy_static;
 use podreplay_lib::{
     create_cached_entry_map, diff_feed, parse_rule, parse_timestamp, reschedule_feed, rewrite_feed,
@@ -39,14 +42,18 @@ pub struct ReplayQuery {
 #[tracing::instrument]
 pub async fn get<'a>(
     query: Query<ReplayQuery>,
-    headers: HeaderMap,
     Extension(db): Extension<Db>,
     Extension(http): Extension<HttpClient>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    request: Request<Body>,
 ) -> Result<ReplayResponse, ReplayError> {
     #[cfg(test)]
     let now = query.now;
     #[cfg(not(test))]
     let now = Utc::now();
+
+    http.record_event("replay", &addr.ip(), &request);
+    let headers = request.headers();
 
     let if_none_match = headers
         .get("if-none-match")
