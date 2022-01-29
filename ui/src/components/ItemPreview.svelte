@@ -14,7 +14,6 @@
   $: rescheduled = ready ? reschedule(feed, $state) : [];
 </script>
 
-<h3>Preview</h3>
 <table class="timeline">
   <thead>
     <tr>
@@ -64,7 +63,7 @@
 
 <style>
   table {
-    margin: 1em;
+    margin: 1.5em 1em 1em;
     width: calc(100% - 2em);
     table-layout: fixed;
     border-spacing: 0;
@@ -181,7 +180,7 @@
   @media (max-width: 45em) {
     table {
       display: block;
-      margin-top: -1em;
+      margin-top: 0;
     }
     thead {
       display: block;
