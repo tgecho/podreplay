@@ -13,7 +13,7 @@
   h1 {
     flex: 0 0 160px;
     font-size: 1.5rem;
-    margin: 0 auto;
+    margin: 0.2em auto;
   }
   h1::before {
     content: ' ';

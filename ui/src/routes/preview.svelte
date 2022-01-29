@@ -88,7 +88,7 @@
     font-size: 0.9em;
     background: #ffe4b2;
     padding: 0.2em 1em 0.1em;
-    border-radius: 1em;
+    border-radius: 0.2em;
   }
   noscript {
     display: block;

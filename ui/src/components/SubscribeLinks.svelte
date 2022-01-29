@@ -58,7 +58,7 @@
     flex: 1 1 10em;
     background: #fffcea;
     border: 1px dotted var(--accent-fg-color);
-    border-radius: 1em;
+    border-radius: 0.2em;
     display: flex;
     flex-wrap: wrap;
     align-content: flex-start;
