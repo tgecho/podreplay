@@ -151,7 +151,7 @@ pub fn summarize_feed<R: BufRead>(
                         if let Some(timestamp) = reader
                             .read_text(&name, &mut buf)
                             .ok()
-                            .and_then(parse_timestamp)
+                            .and_then(|s| parse_timestamp(&s))
                         {
                             item.timestamp = Some(timestamp);
                         }
@@ -191,8 +191,8 @@ pub fn summarize_feed<R: BufRead>(
     }
 }
 
-fn parse_timestamp(timestamp_str: String) -> Option<DateTime<Utc>> {
-    parse_date(&timestamp_str).map(|ts| ts.into())
+pub fn parse_timestamp(timestamp_str: &str) -> Option<DateTime<Utc>> {
+    parse_date(timestamp_str).map(|ts| ts.into())
 }
 
 fn html_to_text(html: &str) -> String {

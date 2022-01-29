@@ -12,8 +12,8 @@ use headers::{HeaderMap, HeaderValue};
 use hyper::{Response, StatusCode};
 use lazy_static::lazy_static;
 use podreplay_lib::{
-    create_cached_entry_map, diff_feed, parse_rule, reschedule_feed, rewrite_feed, FeedSummary,
-    RewriteError, SummarizeError,
+    create_cached_entry_map, diff_feed, parse_rule, parse_timestamp, reschedule_feed, rewrite_feed,
+    FeedSummary, RewriteError, SummarizeError,
 };
 use regex::Regex;
 use serde::Deserialize;
@@ -25,9 +25,9 @@ use crate::{
 };
 
 #[derive(Deserialize, Debug)]
-pub struct SummaryQuery {
+pub struct ReplayQuery {
     rule: String,
-    start: DateTime<Utc>,
+    start: String,
     first: Option<DateTime<Utc>>,
     last: Option<DateTime<Utc>>,
     uri: String,
@@ -38,7 +38,7 @@ pub struct SummaryQuery {
 
 #[tracing::instrument]
 pub async fn get<'a>(
-    query: Query<SummaryQuery>,
+    query: Query<ReplayQuery>,
     headers: HeaderMap,
     Extension(db): Extension<Db>,
     Extension(http): Extension<HttpClient>,
@@ -93,12 +93,15 @@ pub async fn get<'a>(
     let (feed_meta, entries) =
         get_updated_caches(db, &query.uri, now, &fetched_etag, &summary).await?;
 
-    let rule = parse_rule(query.start, &query.rule);
+    let query_start = parse_timestamp(&query.start).ok_or_else(|| {
+        ReplayError::InvalidRequest(format!("Unable to parse timestamp {}", query.start))
+    })?;
+    let rule = parse_rule(query_start, &query.rule);
 
     let (replayed, next_slot) = reschedule_feed(
         &entries,
         rule,
-        query.start,
+        query_start,
         Some(now),
         feed_meta.first_fetched,
         query.first,
@@ -217,6 +220,8 @@ impl IntoResponse for ReplayResponse {
 
 #[derive(Error, Debug)]
 pub enum ReplayError {
+    #[error("Invalid request: {0}")]
+    InvalidRequest(String),
     #[error("{0}")]
     FetchError(#[from] FetchError),
     #[error("{0}")]
