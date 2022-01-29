@@ -23,7 +23,7 @@ impl Default for Config {
             log_level: "info".to_string(),
             host: "::".parse().expect("invalid default host"),
             port: 8080,
-            user_agent: "podreplay/0.1".to_string(),
+            user_agent: "podreplay.com".to_string(),
             assets_path: "ui".to_string(),
         }
     }
