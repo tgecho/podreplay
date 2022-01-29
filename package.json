@@ -3,7 +3,8 @@
   "version": "0.0.1",
   "scripts": {
     "preinstall": "npx only-allow pnpm",
-    "dev": "cd ui; pnpm dev"
+    "dev": "cd ui; pnpm dev",
+    "build": "cd ui; pnpm build"
   },
   "devDependencies": {},
   "type": "module",

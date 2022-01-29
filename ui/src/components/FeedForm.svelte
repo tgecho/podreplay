@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
+  import { browser } from '$app/env';
   import { writable } from 'svelte/store';
   import { queryToState, sortedQueryString, State } from '../util/state';
 
@@ -8,22 +9,29 @@
     return writable<State>(queryToState($page.url.searchParams));
   }
 
-  export let action = '/preview';
   export let state = localState();
   export let uri = $state?.uri ?? '';
 
+  // We let the noscript for go directly to the /replay endpoint so a valid replay feed can be generated without javascript.
+  const action = '/replay';
+  // But we override and goto() the /preview endpoint when javascript is available.
+  const jsAction = '/preview';
+
   const handleSubmit = () => {
     $state.uri = uri;
-
     if (location.pathname !== action) {
-      goto(`${action}?${sortedQueryString($state)}`);
+      goto(`${jsAction}?${sortedQueryString($state)}`);
     }
   };
 </script>
 
 <form {action} on:submit|preventDefault={handleSubmit}>
-  <input name="uri" type="url" bind:value={uri} />
-  <button disabled={!uri?.trim()}>Load Podcast</button>
+  <input name="uri" type="url" bind:value={uri} required={true} />
+  <noscript>
+    <input type="date" name="start" required={true} />
+    <input type="hidden" name="rule" value="1w" />
+  </noscript>
+  <button disabled={browser && !uri?.trim()}>Load Podcast</button>
 </form>
 
 <style>

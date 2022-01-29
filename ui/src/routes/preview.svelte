@@ -7,6 +7,7 @@
   import { feedSummaryStore } from '../util/fetchFeedSummary';
   import SubscribeLinks from '../components/SubscribeLinks.svelte';
   import Footer from '../components/Footer.svelte';
+  import { browser } from '$app/env';
 
   const state = queryStore();
   const feed = feedSummaryStore(state);
@@ -26,20 +27,27 @@
   <FeedForm {state} />
 </Header>
 
-{#await $feed}
-  <div class="loading">
-    <img src="/hourglass.svg" width="50px" alt="hourglass icon" />
-    &nbsp;&nbsp;Loading Feed...
-  </div>
-{:then feed}
-  <div class="top">
-    <ConfigureForm {feed} {state} />
-    <SubscribeLinks {state} feedUri={feed.uri} />
-  </div>
-  <ItemPreview {feed} {state} />
-{:catch error}
-  Error: {error}
-{/await}
+<noscript>
+  Javascript is required for the full preview experience, but you can still generate a replay feed
+  with the form above!
+</noscript>
+
+{#if browser}
+  {#await $feed}
+    <div class="loading">
+      <img src="/hourglass.svg" width="50px" alt="hourglass icon" />
+      &nbsp;&nbsp;Loading Feed...
+    </div>
+  {:then feed}
+    <div class="top">
+      <ConfigureForm {feed} {state} />
+      <SubscribeLinks {state} feedUri={feed.uri} />
+    </div>
+    <ItemPreview {feed} {state} />
+  {:catch error}
+    Error: {error}
+  {/await}
+{/if}
 
 <Footer />
 
@@ -59,5 +67,10 @@
     align-items: center;
     margin: 2em;
     gap: 0.5em;
+  }
+  noscript {
+    display: block;
+    margin: 1em;
+    text-align: center;
   }
 </style>

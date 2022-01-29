@@ -1,8 +1,10 @@
 import { debounce } from 'lodash-es';
 import { page } from '$app/stores';
 import { goto } from '$app/navigation';
-import { derived, get, writable } from 'svelte/store';
-import type { Writable, Readable } from 'svelte/store';
+import { browser } from '$app/env';
+
+import { get, writable } from 'svelte/store';
+import type { Writable } from 'svelte/store';
 import { parseRule, ruleToString } from './parseRule';
 import type { Rule } from './parseRule';
 import { formatForUrl } from './dates';
@@ -45,17 +47,18 @@ export function queryStore(): Writable<State> {
 
   const store = writable<State>(queryToState(query));
 
-  store.subscribe(
-    debounce((query) => {
-      // TODO: tighten up the formatted date to not include sub second precision
-      const queryString = sortedQueryString(query);
-      goto(`${location.pathname}?${queryString}`, {
-        replaceState: true,
-        keepfocus: true,
-        noscroll: true,
-      });
-    }, 100),
-  );
+  if (browser) {
+    store.subscribe(
+      debounce((query) => {
+        const queryString = sortedQueryString(query);
+        goto(`${location.pathname}?${queryString}`, {
+          replaceState: true,
+          keepfocus: true,
+          noscroll: true,
+        });
+      }, 100),
+    );
+  }
 
   return store;
 }
