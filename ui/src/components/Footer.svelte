@@ -7,6 +7,7 @@
     While this app is &copy; 2021 Erik Simmler, no claims are made to the contents of any replayed
     podcasts.
   </p>
+  <p><a href="mailto:erik@podreplay.com">Contact Me</a></p>
 </footer>
 
 <style>
