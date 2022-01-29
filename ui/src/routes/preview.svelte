@@ -43,6 +43,22 @@
       <ConfigureForm {feed} {state} />
       <SubscribeLinks {state} feedUri={feed.uri} />
     </div>
+
+    {#if $state.uri !== feed.uri}
+      <div class="autodiscovery-warning">
+        <h3>Does something seem a little off?</h3>
+        <p>
+          It looks like you entered a podcast page rather than the actual feed URL. That's ok! I
+          tried to find the feed, but sometimes that doesn't work out so well.
+        </p>
+        <p>For what it's worth, this is the link I found: <code>{feed.uri}</code></p>
+        <p>
+          If this episode preview doesn't look quite right, maybe see if you can find the link
+          yourself? Look for buttons with words like "Feed" or "RSS" or "Subscribe".
+        </p>
+      </div>
+    {/if}
+
     <ItemPreview {feed} {state} />
   {:catch error}
     Error: {error}
@@ -67,6 +83,12 @@
     align-items: center;
     margin: 2em;
     gap: 0.5em;
+  }
+  .autodiscovery-warning {
+    font-size: 0.9em;
+    background: #ffe4b2;
+    padding: 0.2em 1em 0.1em;
+    border-radius: 1em;
   }
   noscript {
     display: block;

@@ -26,7 +26,13 @@
 </script>
 
 <form {action} on:submit|preventDefault={handleSubmit}>
-  <input name="uri" type="url" bind:value={uri} required={true} />
+  <input
+    name="uri"
+    type="url"
+    bind:value={uri}
+    required={true}
+    placeholder="Enter a URL such as https://example.com/feed"
+  />
   <noscript>
     <input type="date" name="start" required={true} />
     <input type="hidden" name="rule" value="1w" />
