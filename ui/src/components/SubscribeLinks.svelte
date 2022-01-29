@@ -3,8 +3,9 @@
   import { sortedQueryString, State } from '../util/state';
 
   export let state: Readable<State>;
+  export let feedUri: string;
   const url = derived(state, (s) => {
-    const queryString = sortedQueryString(s);
+    const queryString = sortedQueryString({ ...s, uri: feedUri });
     return `${location.origin}/replay?${queryString}`;
   });
 

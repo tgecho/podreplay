@@ -34,7 +34,7 @@
 {:then feed}
   <div class="top">
     <ConfigureForm {feed} {state} />
-    <SubscribeLinks {state} />
+    <SubscribeLinks {state} feedUri={feed.uri} />
   </div>
   <ItemPreview {feed} {state} />
 {:catch error}
