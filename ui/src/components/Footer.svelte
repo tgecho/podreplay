@@ -4,8 +4,8 @@
     <a href="https://ikonate.com/">Iconate</a>.
   </p>
   <p>
-    While the code of this site is &copy; 2021 Erik Simmler, no claims are made to the contents of
-    any replayed podcasts.
+    While this app is &copy; 2021 Erik Simmler, no claims are made to the contents of any replayed
+    podcasts.
   </p>
 </footer>
 
