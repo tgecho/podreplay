@@ -32,7 +32,7 @@
     type="url"
     bind:value={uri}
     required={true}
-    placeholder="Enter a URL such as https://example.com/feed"
+    placeholder="Enter a URL like https://example.com/feed"
   />
   <noscript>
     <input type="date" name="start" required={true} />
