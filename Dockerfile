@@ -50,16 +50,19 @@ RUN --mount=type=cache,target=/usr/src/ui/node_modules \
 # Build final container
 FROM ubuntu:latest AS app
 
+RUN apt update -y && apt install ca-certificates -y && apt clean -y
+
 WORKDIR /app
+
+COPY --from=litestream/litestream /usr/local/bin/litestream /app/litestream
 
 # Copy server binary
 COPY --from=server_and_wasm /usr/local/cargo/bin/podreplay ./
 
-# Copy the (empty) prebuilt database
-# TODO: manage this with litestream and a boot time config?
-COPY --from=server_and_wasm /usr/src/db.sqlite ./db.sqlite
-
 # Copy the transpiled frontend
 COPY --from=frontend /usr/src/ui/build ./ui
 
-CMD "/app/podreplay"
+COPY litestream.yml /etc/
+
+CMD ./litestream restore -v -if-db-not-exists db.sqlite && \
+    ./litestream replicate -exec "./podreplay"

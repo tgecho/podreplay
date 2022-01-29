@@ -27,6 +27,8 @@ async fn main() {
         .await
         .unwrap_or_else(|err| panic!("Failed to open {} ({})", config.database_url, err));
 
+    db.migrate().await.expect("Failed to run migrations");
+
     let http = HttpClient::new(config.user_agent.clone());
 
     let app = make_router(db, http, &config);
