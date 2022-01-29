@@ -48,8 +48,3 @@ function derivedWithCaching<A, B>(store: Readable<A>, fn: (a: A) => B): Readable
     });
   });
 }
-
-function dbg<V>(v: V): V {
-  console.trace(v);
-  return v;
-}
