@@ -27,6 +27,7 @@
 
 <form {action} on:submit|preventDefault={handleSubmit}>
   <input
+    id="enter-a-feed-url"
     name="uri"
     type="url"
     bind:value={uri}
@@ -53,6 +54,10 @@
     padding: 0.35em;
     color: var(--main-fg-color);
     margin: 0;
+    transition: box-shadow 0.25s;
+  }
+  input:focus {
+    box-shadow: 0 0 20px 2px rgba(35, 42, 214, 0.5);
   }
   button {
     flex: 1 1 7.5em;
