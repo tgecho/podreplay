@@ -46,12 +46,12 @@
 
     {#if $state.uri !== feed.uri}
       <div class="autodiscovery-warning">
-        <h3>Does something seem a little off?</h3>
+        <h3>Does everything look OK?</h3>
         <p>
           It looks like you entered a podcast page rather than the actual feed URL. That's ok! I
-          tried to find the feed, but sometimes that doesn't work out so well.
+          tried to find the feed, but sometimes that doesn't work out so well. For what it's worth,
+          this is the link I found: <code>{feed.uri}</code>
         </p>
-        <p>For what it's worth, this is the link I found: <code>{feed.uri}</code></p>
         <p>
           If this episode preview doesn't look quite right, maybe see if you can find the link
           yourself? Look for buttons with words like "Feed" or "RSS" or "Subscribe".
