@@ -15,7 +15,7 @@ body {
   min-height: 100vh;
   position: relative;
   padding: 1em;
-  padding-bottom: 4em;
+  padding-bottom: 7em;
 }
 body,
 input {
@@ -40,13 +40,19 @@ h3 {
 
 @media (max-width: 40em) {
   body {
-    padding-bottom: 5em;
+    padding-bottom: 8em;
   }
 }
-@media (max-width: 30em) {
+@media (max-width: 35em) {
   body {
     padding: 0.5em;
-    padding-bottom: 7em;
+    padding-bottom: 9em;
+  }
+}
+@media (max-width: 25em) {
+  body {
+    padding: 0.5em;
+    padding-bottom: 11em;
   }
 }
 @media (prefers-color-scheme: dark) {
