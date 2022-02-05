@@ -11,6 +11,8 @@ use reqwest_tracing::TracingMiddleware;
 use serde_json::json;
 use thiserror::Error;
 
+use crate::helpers::HeaderMapUtils;
+
 #[derive(Clone)]
 pub struct HttpClient {
     user_agent: String,
@@ -82,14 +84,8 @@ impl HttpClient {
         }
 
         let headers = resp.headers();
-        let etag = headers
-            .get(header::ETAG)
-            .and_then(|etag| etag.to_str().ok())
-            .map(|etag| etag.to_string());
-        let content_type = headers
-            .get(header::CONTENT_TYPE)
-            .and_then(|ct| ct.to_str().ok())
-            .map(|ct| ct.to_string());
+        let etag = headers.get_string(header::ETAG);
+        let content_type = headers.get_string(header::CONTENT_TYPE);
 
         let body = resp.bytes().await?;
         tracing::trace!(?etag, ?body);

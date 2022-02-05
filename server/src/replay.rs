@@ -25,6 +25,7 @@ use thiserror::Error;
 use crate::{
     db::Db,
     fetch::{FetchError, FetchResponse, HttpClient},
+    helpers::HeaderMapUtils,
 };
 
 #[derive(Deserialize, Debug)]
@@ -55,9 +56,7 @@ pub async fn get<'a>(
     http.record_event("replay", &addr.ip(), &request);
     let headers = request.headers();
 
-    let if_none_match = headers
-        .get("if-none-match")
-        .and_then(|inm| inm.to_str().ok());
+    let if_none_match = headers.get_str("if-none-match");
     tracing::debug!("If-None-Match: {:?}", if_none_match);
     let (feed_request_etag, request_expires) =
         if_none_match.map_or((None, None), parse_request_etag);
