@@ -5,7 +5,8 @@ use axum::{
 };
 use hyper::{Response, StatusCode};
 use podreplay::{
-    config::Config, db::Db, fetch::HttpClient, proxy::ProxyClient, router::make_router,
+    config::Config, db::Db, fetch::HttpClient, helpers::HeaderMapUtils, proxy::ProxyClient,
+    router::make_router,
 };
 use pretty_assertions::assert_eq;
 use tower::util::ServiceExt;
@@ -41,13 +42,7 @@ async fn returns_200_for_atom() {
     );
     let response = get(app, &uri).await;
     let status = response.status();
-    let content_type = response
-        .headers()
-        .get("content-type")
-        .unwrap() // eh
-        .to_str() // ok
-        .unwrap() // wait
-        .to_string(); // wat...?
+    let content_type = response.headers().get_string("content-type").unwrap(); // wat...?
 
     let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
 
@@ -84,13 +79,7 @@ async fn returns_200_for_rss() {
     );
     let response = get(app, &uri).await;
     let status = response.status();
-    let content_type = response
-        .headers()
-        .get("content-type")
-        .unwrap() // wat...
-        .to_str()
-        .unwrap() // the...
-        .to_string();
+    let content_type = response.headers().get_string("content-type").unwrap();
 
     let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
 

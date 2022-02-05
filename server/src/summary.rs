@@ -1,6 +1,9 @@
 use std::io::{BufRead, Cursor, Seek};
 
-use crate::fetch::{FetchError, FetchResponse, HttpClient};
+use crate::{
+    fetch::{FetchError, FetchResponse, HttpClient},
+    helpers::HeaderMapUtils,
+};
 use axum::{
     body::{boxed, BoxBody},
     extract::{Extension, Query},
@@ -8,7 +11,7 @@ use axum::{
     Json,
 };
 use headers::{HeaderMap, HeaderValue};
-use hyper::{body::Buf, Body, StatusCode};
+use hyper::{body::Buf, header, Body, StatusCode};
 use podreplay_lib::{find_feed_links, FeedSummary, SummarizeError};
 use serde::Deserialize;
 use thiserror::Error;
@@ -25,10 +28,7 @@ pub async fn get(
 ) -> Result<SummaryResponse, SummaryError> {
     // TODO: try to add http(s) if missing?
 
-    let if_none_match = headers
-        .get("if-none-match")
-        .and_then(|inm| inm.to_str().ok())
-        .map(|s| s.to_string());
+    let if_none_match = headers.get_string(header::IF_NONE_MATCH);
     tracing::debug!("If-None-Match: {:?}", if_none_match);
     let fetched = http.get_feed(&query.uri, if_none_match).await?;
 
