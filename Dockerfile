@@ -54,7 +54,7 @@ RUN apt update -y && apt install ca-certificates -y && apt clean -y
 
 WORKDIR /app
 
-COPY --from=litestream/litestream /usr/local/bin/litestream /app/litestream
+COPY --from=litestream/litestream:0.3.7 /usr/local/bin/litestream /app/litestream
 
 # Copy server binary
 COPY --from=server_and_wasm /usr/local/cargo/bin/podreplay ./
