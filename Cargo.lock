@@ -63,6 +63,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-recursion"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2cda8f4bcc10624c4e85bc66b3f452cca98cfa5ca002dc83a16aad2367641bea"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "async-trait"
 version = "0.1.52"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1464,7 +1475,9 @@ name = "podreplay"
 version = "0.1.0"
 dependencies = [
  "assert-json-diff",
+ "async-recursion",
  "axum",
+ "base64",
  "chrono",
  "chronoutil",
  "color-eyre",
@@ -1472,9 +1485,13 @@ dependencies = [
  "headers",
  "hyper",
  "hyper-tls",
+ "itertools",
+ "kuchiki",
  "lazy_static",
  "mockito",
+ "percent-encoding",
  "podreplay_lib",
+ "portpicker",
  "pretty_assertions",
  "regex",
  "reqwest",
@@ -1490,6 +1507,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber 0.3.7",
  "tracing-test",
+ "url",
 ]
 
 [[package]]
@@ -1506,6 +1524,7 @@ dependencies = [
  "nom",
  "pretty_assertions",
  "quick-xml",
+ "regex",
  "serde",
  "thiserror",
  "tracing",
@@ -1522,6 +1541,15 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-test",
  "wee_alloc",
+]
+
+[[package]]
+name = "portpicker"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "be97d76faf1bfab666e1375477b23fde79eccf0276e9b63b92a39d676a889ba9"
+dependencies = [
+ "rand 0.8.4",
 ]
 
 [[package]]

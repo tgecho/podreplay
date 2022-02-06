@@ -10,6 +10,7 @@ use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
 use reqwest_tracing::TracingMiddleware;
 use serde_json::json;
 use thiserror::Error;
+use url::Url;
 
 use crate::helpers::HeaderMapUtils;
 
@@ -26,23 +27,29 @@ impl std::fmt::Debug for HttpClient {
     }
 }
 
-pub enum FetchResponse {
-    NotModified,
-    Fetched {
-        body: Bytes,
-        etag: Option<String>,
-        content_type: Option<String>,
-    },
+pub struct Fetched {
+    pub body: Bytes,
+    pub content_type: Option<String>,
+    pub etag: Option<String>,
+    pub url: Url,
 }
 
 #[derive(Error, Debug)]
-pub enum FetchError {
+pub enum FetchException {
     #[error("{0}")]
     Request(#[from] reqwest_middleware::Error),
     #[error("Failed to fetch feed")]
     Response(reqwest::Response),
     #[error("{0}")]
     Read(#[from] reqwest::Error),
+    #[error("{0}")]
+    JsonParse(#[from] serde_json::Error),
+    #[error("{0}")]
+    UrlParse(#[from] url::ParseError),
+    #[error("Unknown")]
+    Unknown,
+    #[error("Unknown")]
+    NotModified(Option<String>),
 }
 
 impl HttpClient {
@@ -58,16 +65,12 @@ impl HttpClient {
     }
 
     #[tracing::instrument(level = "debug")]
-    pub async fn get_feed(
-        &self,
-        uri: &str,
-        etag: Option<String>,
-    ) -> Result<FetchResponse, FetchError> {
+    pub async fn get(&self, uri: &str, etag: Option<String>) -> Result<Fetched, FetchException> {
         let req = self
             .client
             .get(uri)
             .header(header::USER_AGENT, &self.user_agent);
-        let req = if let Some(etag) = etag {
+        let req = if let Some(etag) = &etag {
             req.header(header::IF_NONE_MATCH, etag)
         } else {
             req
@@ -77,12 +80,15 @@ impl HttpClient {
         tracing::trace!("status {:?}", resp.status());
 
         if resp.status() == StatusCode::NOT_MODIFIED {
-            return Ok(FetchResponse::NotModified);
+            return Err(FetchException::NotModified(
+                etag.or_else(|| resp.headers().get_string(header::ETAG)),
+            ));
         }
         if !resp.status().is_success() {
-            return Err(FetchError::Response(resp));
+            return Err(FetchException::Response(resp));
         }
 
+        let url = resp.url().clone();
         let headers = resp.headers();
         let etag = headers.get_string(header::ETAG);
         let content_type = headers.get_string(header::CONTENT_TYPE);
@@ -90,10 +96,11 @@ impl HttpClient {
         let body = resp.bytes().await?;
         tracing::trace!(?etag, ?body);
 
-        Ok(FetchResponse::Fetched {
+        Ok(Fetched {
             body,
             etag,
             content_type,
+            url,
         })
     }
 

@@ -1,32 +1,11 @@
-use axum::{
-    body::{Body, BoxBody},
-    http::Request,
-    Router,
-};
-use hyper::{Response, StatusCode};
-use podreplay::{
-    config::Config, db::Db, fetch::HttpClient, helpers::HeaderMapUtils, proxy::ProxyClient,
-    router::make_router,
-};
+mod helpers;
+
+use axum::body::Body;
+use helpers::TestApp;
+use hyper::{header, StatusCode};
+use podreplay::helpers::HeaderMapUtils;
 use pretty_assertions::assert_eq;
-use tower::util::ServiceExt;
 use tracing_test::traced_test;
-
-async fn test_app() -> Router {
-    let config = Config::default();
-    let db = Db::new("sqlite::memory:".to_string()).await.unwrap();
-    db.migrate().await.unwrap();
-
-    let http = HttpClient::new(config.user_agent.clone(), None);
-    let proxy = ProxyClient::new();
-    make_router(db, http, proxy, &config)
-}
-
-async fn get(app: Router, uri: &str) -> Response<BoxBody> {
-    app.oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
-        .await
-        .unwrap()
-}
 
 #[traced_test]
 #[tokio::test]
@@ -35,16 +14,15 @@ async fn returns_200_for_atom() {
     let mock = mockito::mock("GET", "/hello").with_body(xml).create();
     let mock_uri = format!("{}/hello", &mockito::server_url());
 
-    let app = test_app().await;
+    let app = TestApp::new().await;
 
-    let uri = format!(
+    let path = format!(
         "/replay?rule=1w&start=2021-10-23T01:09:00Z&now=2021-11-23T01:09:00Z&title=My+Custom+Title&uri={mock_uri}"
     );
-    let response = get(app, &uri).await;
+    let response = app.get(&path).send().await.unwrap();
     let status = response.status();
-    let content_type = response.headers().get_string("content-type").unwrap(); // wat...?
-
-    let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+    let content_type = response.headers().get_string("content-type").unwrap();
+    let body = response.bytes().await.unwrap();
 
     let expected = xml
         .replace(
@@ -72,16 +50,15 @@ async fn returns_200_for_rss() {
     let mock = mockito::mock("GET", "/hello").with_body(xml).create();
     let mock_uri = format!("{}/hello", &mockito::server_url());
 
-    let app = test_app().await;
+    let app = TestApp::new().await;
 
-    let uri = format!(
+    let path = format!(
         "/replay?rule=1w&start=2021-10-23T01:09:00Z&now=2021-11-23T01:09:00Z&uri={mock_uri}"
     );
-    let response = get(app, &uri).await;
+    let response = app.get(&path).send().await.unwrap();
     let status = response.status();
     let content_type = response.headers().get_string("content-type").unwrap();
-
-    let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+    let body = response.bytes().await.unwrap();
 
     let expected = xml
         .replace(
@@ -111,18 +88,16 @@ async fn returns_200_for_rss() {
 #[tokio::test]
 async fn returns_304_if_expires_is_in_the_future() {
     let etag = "\"2022-10-23T01:09:00Z|opaquestring\"";
-    let app = test_app().await;
-    let uri =
-        "/replay?rule=1w&start=2021-10-23T01:09:00Z&now=2021-11-23T01:09:00Z&uri=/doesnotmatter";
 
+    let app = TestApp::new().await;
+
+    let path =
+        "/replay?rule=1w&start=2021-10-23T01:09:00Z&now=2021-11-23T01:09:00Z&uri=/doesnotmatter";
     let response = app
-        .oneshot(
-            Request::builder()
-                .uri(uri)
-                .header("If-None-Match", etag)
-                .body(Body::empty())
-                .unwrap(),
-        )
+        .get(path)
+        .header("If-None-Match", etag)
+        .body(Body::empty())
+        .send()
         .await
         .unwrap();
 
@@ -147,27 +122,24 @@ async fn returns_304_if_feed_returns_304() {
         .create();
     let mock_uri = format!("{}/returns_304", &mockito::server_url());
 
-    let app = test_app().await;
+    let app = TestApp::new().await;
 
-    let uri = format!(
+    let path = format!(
         "/replay?rule=1w&start=2021-10-23T01:09:00Z&now=2021-10-23T01:09:00Z&uri={mock_uri}"
     );
 
     let response = app
-        .oneshot(
-            Request::builder()
-                .uri(uri)
-                .header("If-None-Match", replay_etag)
-                .body(Body::empty())
-                .unwrap(),
-        )
+        .get(&path)
+        .header("If-None-Match", replay_etag)
+        .body(Body::empty())
+        .send()
         .await
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::NOT_MODIFIED);
-    assert_eq!(response.headers().get("ETag").unwrap(), replay_etag);
+    assert_eq!(response.headers().get(header::ETAG).unwrap(), replay_etag);
     assert_eq!(
-        response.headers().get("Expires").unwrap(),
+        response.headers().get(header::EXPIRES).unwrap(),
         "Sat, 23 Oct 2021 01:09:00 +0000"
     );
 
