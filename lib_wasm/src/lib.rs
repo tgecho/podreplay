@@ -1,3 +1,5 @@
+#![allow(clippy::unused_unit)] // https://github.com/rustwasm/wasm-bindgen/issues/2774
+
 #[cfg(debug_assertions)]
 mod utils;
 
