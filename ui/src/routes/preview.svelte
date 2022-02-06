@@ -48,13 +48,13 @@
       <div class="autodiscovery-warning">
         <h3>Does everything look OK?</h3>
         <p>
-          It looks like you entered a podcast page rather than the actual feed URL. That's ok! I
-          tried to find the feed, but sometimes that doesn't work out so well. For what it's worth,
-          this is the link I found: <code>{feed.uri}</code>
+          It looks like you entered the link to the podcast page rather than to the actual feed.
+          That's fine! I found this link which seems to be a feed:
         </p>
+        <p><code>{feed.uri}</code></p>
         <p>
-          If this episode preview doesn't look quite right, maybe see if you can find the link
-          yourself? Look for buttons with words like "Feed" or "RSS" or "Subscribe".
+          If the episode preview doesn't look quite right, maybe see if you can find the link
+          yourself? Look for links or buttons with words like "Feed" or "RSS" or "Subscribe".
         </p>
       </div>
     {/if}
