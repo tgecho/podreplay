@@ -6,7 +6,7 @@ use std::{
 };
 
 use axum::{
-    body::{boxed, Body, BoxBody},
+    body::{Body, BoxBody},
     extract::{ConnectInfo, Extension, Query},
     response::IntoResponse,
 };
@@ -24,7 +24,7 @@ use thiserror::Error;
 
 use crate::{
     db::Db,
-    fetch::{FetchError, FetchResponse, HttpClient},
+    fetch::{FetchException, HttpClient},
     helpers::HeaderMapUtils,
 };
 
@@ -47,7 +47,7 @@ pub async fn get<'a>(
     Extension(http): Extension<HttpClient>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     request: Request<Body>,
-) -> Result<ReplayResponse, ReplayError> {
+) -> Result<Replay, ReplayError> {
     #[cfg(test)]
     let now = query.now;
     #[cfg(not(test))]
@@ -63,7 +63,7 @@ pub async fn get<'a>(
     if let Some(expires) = request_expires {
         if now < expires {
             tracing::debug!("NotModified ({} < {:?})", now, expires);
-            return Ok(ReplayResponse::NotModified {
+            return Err(ReplayError::NotModified {
                 headers: prepare_headers(request_expires, feed_request_etag.map(|e| e.to_string())),
             });
         } else {
@@ -72,32 +72,28 @@ pub async fn get<'a>(
     }
 
     let fetched = http
-        .get_feed(
+        .get(
             &query.uri,
             feed_request_etag.map(|etag| format!(r#""{etag}""#)),
         )
-        .await?;
+        .await;
 
-    let (feed_body, fetched_etag, content_type) = match fetched {
-        FetchResponse::NotModified => {
-            tracing::debug!("NotModified (feed returned 304)");
-            return Ok(ReplayResponse::NotModified {
+    let fetched = match fetched {
+        Ok(fetched) => fetched,
+        Err(FetchException::NotModified(_)) => {
+            return Err(ReplayError::NotModified {
                 headers: prepare_headers(request_expires, feed_request_etag.map(|e| e.to_string())),
             });
         }
-        FetchResponse::Fetched {
-            body,
-            etag,
-            content_type,
-        } => (body, etag, content_type),
+        err => err?,
     };
 
-    let mut feed_reader = Cursor::new(feed_body);
+    let mut feed_reader = Cursor::new(fetched.body);
     let summary = FeedSummary::new(query.uri.clone(), &mut feed_reader)?;
     feed_reader.rewind()?;
 
     let (feed_meta, entries) =
-        get_updated_caches(db, &query.uri, now, &fetched_etag, &summary).await?;
+        get_updated_caches(db, &query.uri, now, &fetched.etag, &summary).await?;
 
     let query_start = parse_timestamp(&query.start).ok_or_else(|| {
         ReplayError::InvalidRequest(format!("Unable to parse timestamp {}", query.start))
@@ -121,13 +117,17 @@ pub async fn get<'a>(
         !summary.marked_private,
         &query.title,
     )?;
-    let mut headers = prepare_headers(next_slot, fetched_etag);
+    let mut headers = prepare_headers(next_slot, fetched.etag);
     headers.append(
         "Content-Type",
-        HeaderValue::from_str(&content_type.unwrap_or_else(|| "application/rss+xml".to_string()))
-            .unwrap(),
+        HeaderValue::from_str(
+            &fetched
+                .content_type
+                .unwrap_or_else(|| "application/rss+xml".to_string()),
+        )
+        .unwrap(),
     );
-    Ok(ReplayResponse::Success { body, headers })
+    Ok(Replay { body, headers })
 }
 
 async fn get_updated_caches(
@@ -208,19 +208,14 @@ fn parse_request_etag(if_none_match: &str) -> (Option<&str>, Option<DateTime<Utc
     (feed_request_etag, request_expires)
 }
 
-pub enum ReplayResponse {
-    NotModified { headers: HeaderMap },
-    Success { headers: HeaderMap, body: Vec<u8> },
+pub struct Replay {
+    headers: HeaderMap,
+    body: Vec<u8>,
 }
 
-impl IntoResponse for ReplayResponse {
+impl IntoResponse for Replay {
     fn into_response(self) -> Response<BoxBody> {
-        match self {
-            ReplayResponse::NotModified { headers } => {
-                (headers, StatusCode::NOT_MODIFIED).into_response()
-            }
-            ReplayResponse::Success { headers, body } => (headers, body).into_response(),
-        }
+        (self.headers, self.body).into_response()
     }
 }
 
@@ -229,7 +224,7 @@ pub enum ReplayError {
     #[error("Invalid request: {0}")]
     InvalidRequest(String),
     #[error("{0}")]
-    FetchError(#[from] FetchError),
+    FetchError(#[from] FetchException),
     #[error("{0}")]
     ParseError(#[from] SummarizeError),
     #[error("{0}")]
@@ -238,19 +233,17 @@ pub enum ReplayError {
     DatabaseError(#[from] sqlx::Error),
     #[error("Unexpected internal error")]
     UnknownError(#[from] std::io::Error),
+    #[error("Not modified")]
+    NotModified { headers: HeaderMap },
 }
 
 impl IntoResponse for ReplayError {
     fn into_response(self) -> Response<BoxBody> {
         tracing::error!(?self);
-        let body = Body::from(self.to_string());
-        let status = match self {
-            Self::FetchError(_) | Self::ParseError(_) => StatusCode::BAD_GATEWAY,
-            _ => StatusCode::INTERNAL_SERVER_ERROR,
-        };
-        Response::builder()
-            .status(status)
-            .body(boxed(body))
-            .expect("Failed to build error response")
+        match self {
+            Self::NotModified { headers } => (headers, StatusCode::NOT_MODIFIED).into_response(),
+            Self::FetchError(_) | Self::ParseError(_) => StatusCode::BAD_GATEWAY.into_response(),
+            _ => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        }
     }
 }

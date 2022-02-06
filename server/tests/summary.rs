@@ -1,33 +1,11 @@
+mod helpers;
+
 use assert_json_diff::assert_json_eq;
-use axum::{
-    body::{Body, BoxBody},
-    http::Request,
-    Router,
-};
-use hyper::{Response, StatusCode};
-use podreplay::{
-    config::Config, db::Db, fetch::HttpClient, proxy::ProxyClient, router::make_router,
-};
+use helpers::TestApp;
+use hyper::StatusCode;
 use pretty_assertions::assert_eq;
 use serde_json::{from_slice, json};
-use tower::util::ServiceExt;
 use tracing_test::traced_test;
-
-async fn test_app() -> Router {
-    let config = Config::default();
-    let db = Db::new("sqlite::memory:".to_string()).await.unwrap();
-    db.migrate().await.unwrap();
-
-    let http = HttpClient::new(config.user_agent.clone(), None);
-    let proxy = ProxyClient::new();
-    make_router(db, http, proxy, &config)
-}
-
-async fn get(app: Router, uri: &str) -> Response<BoxBody> {
-    app.oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
-        .await
-        .unwrap()
-}
 
 #[traced_test]
 #[tokio::test]
@@ -36,13 +14,13 @@ async fn returns_200() {
     let mock = mockito::mock("GET", "/hello").with_body(xml).create();
     let mock_uri = format!("{}/hello", &mockito::server_url());
 
-    let app = test_app().await;
+    let app = TestApp::new().await;
 
-    let uri = format!("/summary?uri={mock_uri}");
-    let response = get(app, &uri).await;
+    let path = format!("/summary?uri={mock_uri}");
+    let response = app.get(&path).send().await.unwrap();
     let status = response.status();
 
-    let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+    let body = response.bytes().await.unwrap();
     let actual: serde_json::Value = from_slice(&body).unwrap();
     let expected = json!({
         "uri": mock_uri,
@@ -91,13 +69,13 @@ async fn follows_link_meta_in_html() {
         .with_body(include_str!("../../lib/tests/data/sample_rss_2.0.xml"))
         .create();
 
-    let app = test_app().await;
+    let app = TestApp::new().await;
 
-    let uri = format!("/summary?uri={mock_html_uri}");
-    let response = get(app, &uri).await;
+    let path = format!("/summary?uri={mock_html_uri}");
+    let response = app.get(&path).send().await.unwrap();
     let status = response.status();
 
-    let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+    let body = response.bytes().await.unwrap();
     let actual: serde_json::Value = from_slice(&body).unwrap();
     let expected = json!({
         "uri": mock_xml_uri,

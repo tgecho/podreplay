@@ -1,18 +1,18 @@
-use std::io::{BufRead, Cursor, Seek};
-
 use crate::{
-    fetch::{FetchError, FetchResponse, HttpClient},
+    autodiscovery::{AutodiscoveryException, FeedUrl},
+    fetch::{FetchException, HttpClient},
     helpers::HeaderMapUtils,
 };
 use axum::{
-    body::{boxed, BoxBody},
+    body::BoxBody,
     extract::{Extension, Query},
     response::{IntoResponse, Response},
     Json,
 };
-use headers::{HeaderMap, HeaderValue};
-use hyper::{body::Buf, header, Body, StatusCode};
-use podreplay_lib::{find_feed_links, FeedSummary, SummarizeError};
+use headers::HeaderMap;
+use hyper::{header, StatusCode};
+use podreplay_lib::{FeedSummary, SummarizeError};
+use reqwest::Url;
 use serde::Deserialize;
 use thiserror::Error;
 
@@ -25,93 +25,75 @@ pub async fn get(
     query: Query<SummaryQuery>,
     headers: HeaderMap,
     Extension(http): Extension<HttpClient>,
-) -> Result<SummaryResponse, SummaryError> {
-    // TODO: try to add http(s) if missing?
+) -> Result<Summary, SummaryError> {
+    // TODO: maybe return something that indicates how we found it?
+
+    let url = Url::parse(&query.uri)
+        .or_else(|original| Url::parse(&format!("http://{}", &query.uri)).map_err(|_| original))?;
+
+    let feed_url = FeedUrl::new(url);
 
     let if_none_match = headers.get_string(header::IF_NONE_MATCH);
     tracing::debug!("If-None-Match: {:?}", if_none_match);
-    let fetched = http.get_feed(&query.uri, if_none_match).await?;
 
-    let (feed_body, fetched_etag) = match fetched {
-        FetchResponse::NotModified => {
-            tracing::debug!("NotModified (feed returned 304)");
-            return Ok(SummaryResponse::NotModified);
-        }
-        FetchResponse::Fetched { body, etag, .. } => (body, etag),
-    };
+    let found = feed_url.attempt_autodiscovery(&http, if_none_match).await?;
 
-    let mut reader = Cursor::new(feed_body);
-    let summary = match FeedSummary::new(query.uri.clone(), &mut reader) {
-        Ok(summary) => summary,
-        Err(_) => {
-            reader.rewind()?;
-            attempt_autodiscovery(&mut reader, &query.uri, http).await?
-        }
-    };
     let mut headers = HeaderMap::new();
-    if let Some(etag) = fetched_etag.and_then(|etag| HeaderValue::from_str(etag.as_ref()).ok()) {
-        headers.append("ETag", etag);
-    }
-    Ok(SummaryResponse::Success { headers, summary })
+    headers.try_append(header::ETAG, found.etag);
+    Ok(Summary {
+        headers,
+        summary: found.summary,
+    })
 }
 
-async fn attempt_autodiscovery<R: BufRead>(
-    reader: &mut R,
-    origin: &str,
-    http: HttpClient,
-) -> Result<FeedSummary, SummarizeError> {
-    for uri in find_feed_links(reader, origin) {
-        if let Ok(FetchResponse::Fetched { body, .. }) = http.get_feed(&uri, None).await {
-            let mut reader = body.reader();
-            let summary = FeedSummary::new(uri, &mut reader);
-            if summary.is_ok() {
-                return summary;
-            }
-        }
-    }
-    Err(SummarizeError::NotAFeed)
+pub struct Summary {
+    headers: HeaderMap,
+    summary: FeedSummary,
 }
 
-pub enum SummaryResponse {
-    NotModified,
-    Success {
-        headers: HeaderMap,
-        summary: FeedSummary,
-    },
-}
-
-impl IntoResponse for SummaryResponse {
+impl IntoResponse for Summary {
     fn into_response(self) -> Response<BoxBody> {
-        match self {
-            SummaryResponse::NotModified => StatusCode::NOT_MODIFIED.into_response(),
-            SummaryResponse::Success { headers, summary } => {
-                (headers, Json(summary)).into_response()
-            }
-        }
+        (self.headers, Json(self.summary)).into_response()
     }
 }
 
 #[derive(Error, Debug)]
 pub enum SummaryError {
     #[error("{0}")]
-    FetchError(#[from] FetchError),
+    Fetch(#[from] FetchException),
     #[error("{0}")]
-    ParseError(#[from] SummarizeError),
+    Parse(#[from] SummarizeError),
     #[error("Unexpected internal error")]
-    UnknownError(#[from] std::io::Error),
+    Io(#[from] std::io::Error),
+    #[error("Autodiscovery failed")]
+    Autodiscovery(#[from] AutodiscoveryException),
+    #[error("Invalid url")]
+    UrlParse(#[from] url::ParseError),
+    #[error("Unexpected internal error")]
+    Unknown,
 }
 
 impl IntoResponse for SummaryError {
     fn into_response(self) -> Response<BoxBody> {
-        tracing::error!(?self);
-        let body = Body::from(self.to_string());
-        let status = match self {
-            Self::UnknownError(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            _ => StatusCode::BAD_GATEWAY,
-        };
-        Response::builder()
-            .status(status)
-            .body(boxed(body))
-            .expect("Failed to build error response")
+        match self {
+            Self::Autodiscovery(AutodiscoveryException::Fetch(FetchException::NotModified(
+                etag,
+            ))) => {
+                let mut headers = HeaderMap::new();
+                headers.try_append(header::ETAG, etag);
+                (headers, StatusCode::NOT_MODIFIED).into_response()
+            }
+            Self::Autodiscovery(AutodiscoveryException::Failed) => {
+                (StatusCode::NOT_FOUND, "Unable to find a feed").into_response()
+            }
+            Self::Unknown | Self::Io(_) => {
+                tracing::error!(?self);
+                StatusCode::INTERNAL_SERVER_ERROR.into_response()
+            }
+            _ => {
+                tracing::error!(?self);
+                StatusCode::BAD_GATEWAY.into_response()
+            }
+        }
     }
 }

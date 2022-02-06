@@ -12,7 +12,7 @@ pub use diff::{create_cached_entry_map, diff_feed};
 pub use reschedule::{reschedule_feed, Item, Reschedule};
 pub use rewrite::{rewrite_feed, RewriteError};
 pub use rule::{parse_rule, Rule};
-pub use summarize::{find_feed_links, parse_timestamp, FeedSummary, SummarizeError, SummaryItem};
+pub use summarize::{parse_timestamp, FeedSummary, SummarizeError, SummaryItem};
 
 #[derive(Debug)]
 pub struct FeedMeta {
