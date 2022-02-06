@@ -61,7 +61,10 @@
 
     <ItemPreview {feed} {state} />
   {:catch error}
-    Error: {error}
+    <div class="error">
+      <img src="/bug.svg" width="50px" alt="hourglass icon" />
+      {error}
+    </div>
   {/await}
 {/if}
 
@@ -76,7 +79,8 @@
     gap: 1em;
     margin: 1.5em 0;
   }
-  .loading {
+  .loading,
+  .error {
     display: flex;
     flex-direction: column;
     justify-content: center;
