@@ -65,6 +65,17 @@
       <img src="/bug.svg" width="50px" alt="hourglass icon" />
       {error}
     </div>
+
+    <div class="autodiscovery-warning">
+      <h3>What now?</h3>
+      <p>
+        Maybe see if you can find the link yourself? Look for links or buttons with words like
+        "Feed" or "RSS" or "Subscribe".
+      </p>
+      <p>
+        I can work with lots of things, include the Apple Podcast page if that's what you can find.
+      </p>
+    </div>
   {/await}
 {/if}
 
