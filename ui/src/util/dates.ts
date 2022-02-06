@@ -5,5 +5,5 @@ export function formatForInput(date: Date) {
 }
 
 export function formatForUrl(date: Date) {
-  return format(date, "yyyy-MM-dd'T'HH:mm:ss'Z'");
+  return format(date, "yyyy-MM-dd'T'HH:mm:ssXX");
 }
