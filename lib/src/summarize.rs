@@ -3,7 +3,7 @@ use diligent_date_parser::parse_date;
 use kuchiki::{parse_html, traits::TendrilSink};
 use quick_xml::events::{BytesStart, Event};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, io::BufRead};
+use std::{collections::HashMap, io::BufRead, str::from_utf8};
 use thiserror::Error;
 
 use crate::CachedEntry;
@@ -46,6 +46,8 @@ pub struct FeedSummary {
 pub enum SummarizeError {
     #[error("Failed to parse feed: {0}")]
     Parse(#[from] quick_xml::Error),
+    // #[error("Unexpected")]
+    // Parse(#[from] quick_xml::Error),
     #[error("No valid feed found")]
     NotAFeed,
 }
@@ -112,10 +114,7 @@ pub fn summarize_feed<R: BufRead>(
                 }
                 b"guid" | b"id" => {
                     if let Some(item) = &mut partial_item {
-                        let name = start.name().to_owned();
-                        if let Ok(id) = reader.read_text(name, &mut buf) {
-                            item.id = Some(id);
-                        }
+                        item.id = Some(read_contents(&mut reader, &start)?);
                     }
                 }
                 b"title" => {
@@ -190,6 +189,35 @@ pub fn summarize_feed<R: BufRead>(
     }
 }
 
+pub fn read_contents<R: BufRead>(
+    reader: &mut quick_xml::Reader<R>,
+    start: &BytesStart,
+) -> Result<String, quick_xml::Error> {
+    let mut id_buf: Vec<u8> = Vec::new();
+    let mut id = String::new();
+    loop {
+        match reader.read_event(&mut id_buf)? {
+            Event::Text(bytes) | Event::CData(bytes) => {
+                if let Ok(frag) = from_utf8(&bytes) {
+                    id.push_str(frag.trim());
+                }
+            }
+            Event::End(end) if end.name() == start.name() => break,
+            Event::Eof => {
+                return Err(quick_xml::Error::UnexpectedEof(
+                    "while attempting to get guid".to_string(),
+                ))
+            }
+            _ => return Err(quick_xml::Error::TextNotFound),
+        }
+    }
+    if id.is_empty() {
+        Err(quick_xml::Error::TextNotFound)
+    } else {
+        Ok(id.to_string())
+    }
+}
+
 pub fn parse_timestamp(timestamp_str: &str) -> Option<DateTime<Utc>> {
     parse_date(timestamp_str).map(|ts| ts.into())
 }
@@ -236,6 +264,30 @@ mod test {
                 title: "With any luck we should have one or two more days of namespaces stuff here on Scripting Ne..."
                     .to_string(),
                 timestamp: parse_dt("2002-09-30T01:56:02"),
+            },
+        ];
+        assert_eq!(output.items, expected);
+    }
+
+    #[test]
+    fn megaphone() {
+        let xml = include_str!("../tests/data/megaphone.xml");
+        let output = FeedSummary::new("testing".into(), &mut Cursor::new(xml)).unwrap();
+        let expected = vec![
+            SummaryItem {
+                id: "612990fc-4f9c-11eb-a6af-e7830eb4fc55".to_string(),
+                title: "S6 Ep. 6: No Peace".to_string(),
+                timestamp: parse_dt("2021-12-15T08:00:00"),
+            },
+            SummaryItem {
+                id: "613b2312-4f9c-11eb-a6af-b700e1b799da".to_string(),
+                title: "S6 Ep. 7: Into Ashes".to_string(),
+                timestamp: parse_dt("2021-12-22T08:00:00"),
+            },
+            SummaryItem {
+                id: "614f5f12-4f9c-11eb-a6af-cb9557e04485".to_string(),
+                title: "S6 Ep. 8: Damages".to_string(),
+                timestamp: parse_dt("2021-12-29T08:00:00"),
             },
         ];
         assert_eq!(output.items, expected);

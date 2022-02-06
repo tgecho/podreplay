@@ -1,4 +1,5 @@
 use crate::reschedule::Reschedule;
+use crate::summarize::read_contents;
 use chrono::{DateTime, SecondsFormat, Utc};
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
 use quick_xml::Reader;
@@ -158,7 +159,7 @@ fn rewrite_or_skip_item<B: BufRead, W: Write>(
                 match element_tag {
                     b"guid" | b"id" => {
                         had_id = true;
-                        let guid = reader.read_text(start.name(), &mut start_buf)?;
+                        let guid = read_contents(reader, &start)?;
 
                         if let Some(rescheduled_timestamp) = reschedule.get(&guid) {
                             events.extend(element(start, guid));
@@ -286,6 +287,49 @@ mod tests {
             .replace(
                 "<title>Scripting News</title>",
                 "<title>Scripting News (PodReplay)</title>",
+            );
+        assert_eq!(output, expected);
+    }
+
+    #[test]
+    fn megaphone() {
+        let xml = include_str!("../tests/data/megaphone.xml");
+        let reschedule = HashMap::from([
+            (
+                "612990fc-4f9c-11eb-a6af-e7830eb4fc55".to_string(),
+                parse_dt("2022-01-15T16:00:00"),
+            ),
+            (
+                "613b2312-4f9c-11eb-a6af-b700e1b799da".to_string(),
+                parse_dt("2022-01-16T16:00:00"),
+            ),
+            (
+                "614f5f12-4f9c-11eb-a6af-cb9557e04485".to_string(),
+                parse_dt("2022-01-17T16:00:00"),
+            ),
+        ]);
+        let output = parse_feed_to_str(xml, &reschedule, None);
+        let expected = xml
+            .replace(
+                "<guid isPermaLink=\"false\">\n                <![CDATA[",
+                "<guid isPermaLink=\"false\">",
+            )
+            .replace("]]>\n            </guid>", "</guid>")
+            .replace(
+                "<pubDate>Wed, 15 Dec 2021 08:00:00 -0000</pubDate>",
+                "<pubDate>Sat, 15 Jan 2022 16:00:00 +0000</pubDate>",
+            )
+            .replace(
+                "<pubDate>Wed, 22 Dec 2021 08:00:00 -0000</pubDate>",
+                "<pubDate>Sun, 16 Jan 2022 16:00:00 +0000</pubDate>",
+            )
+            .replace(
+                "<pubDate>Wed, 29 Dec 2021 08:00:00 -0000</pubDate>",
+                "<pubDate>Mon, 17 Jan 2022 16:00:00 +0000</pubDate>",
+            )
+            .replace(
+                "<title>Slow Burn</title>",
+                "<title>Slow Burn (PodReplay)</title>",
             );
         assert_eq!(output, expected);
     }
