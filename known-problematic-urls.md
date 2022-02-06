@@ -10,13 +10,6 @@ Throws an error in the firefox preview (though the feed appears to work due to l
 I guess I need to add the itunes namespace?
 https://podreplay.com/replay?start=2022-01-30T04:32:29Z&rule=1d&first=2021-01-01T05:00:00Z&uri=https%3A%2F%2Fstrangelandpodcast.com%2Ffeed%2F
 
-Seems to drop me on a preview where everything is skipped, even though there's no first/last param :/
-When replayed, all of the episodes are replayed in the start day (wat...)
-
-- https://podreplay.com/preview?start=2022-01-30T15:00:00Z&rule=1w&uri=https%3A%2F%2Fslate.com%2Fpodcasts%2Fslow-burn%2Fs3%2Fbiggie-and-tupac
-- https://feeds.megaphone.fm/replyall
-- http://feeds.megaphone.fm/veryfatalmurder
-
 # https://www.podchaser.com/podcasts/fat-mascara-90926
 
 Has this blob of ld+json with the feed url in it... might be something not too specific to them?
