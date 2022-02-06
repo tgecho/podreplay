@@ -1,12 +1,23 @@
+<script lang="ts">
+  const poweredBy = [
+    { href: 'https://www.rust-lang.org/', name: 'Rust' },
+    { href: 'https://svelte.dev/', name: 'Svelte' },
+    { href: 'https://litestream.io/', name: 'Litestream' },
+    { href: 'https://fly.io/', name: 'Fly.io' },
+    { href: 'https://ikonate.com/', name: 'Iconate' },
+  ];
+  poweredBy.sort(() => Math.random() - 0.5);
+</script>
+
 <footer>
   <p>
     PodReplay is a coffee table project by <a href="https://esimmler.com">Erik Simmler</a>.
   </p>
   <p>
-    Powered by <a href="https://www.rust-lang.org/">Rust</a>,
-    <a href="https://svelte.dev/">Svelte</a>, <a href="https://litestream.io/">Litestream</a>,
-    <a href="https://fly.io/">Fly.io</a>,
-    <a href="https://ikonate.com/">Iconate</a>, and more.
+    Powered by
+    {#each poweredBy as link (link.name)}
+      <a href={link.href}>{link.name}</a>,
+    {/each}and more.
   </p>
   <p>
     While this app is &copy; 2021 Erik Simmler, no claims are made to the contents of any replayed
