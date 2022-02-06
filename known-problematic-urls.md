@@ -6,6 +6,8 @@ Gimlet -- nope (example: https://gimletmedia.com/shows/the-habitat)
 
 https://www.dancarlin.com/hardcore-history-series/ has a meta tag with (apparently) a single blog entry. Not sure if we need a special rule or just more aggressive/intelligent autodiscovery code.
 
+https://www.wnycstudios.org/podcasts/radiolab/podcasts has a meta tag to an empty feed. All of the actual feed links are locked behind a javascript popup
+
 Throws an error in the firefox preview (though the feed appears to work due to lenient clients)
 I guess I need to add the itunes namespace?
 https://podreplay.com/replay?start=2022-01-30T04:32:29Z&rule=1d&first=2021-01-01T05:00:00Z&uri=https%3A%2F%2Fstrangelandpodcast.com%2Ffeed%2F
