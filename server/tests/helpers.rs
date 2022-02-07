@@ -1,7 +1,6 @@
 use podreplay::{
     config::Config, db::Db, fetch::HttpClient, proxy::ProxyClient, router::make_router,
 };
-use portpicker::pick_unused_port;
 use std::net::{SocketAddr, TcpListener};
 use tokio::task::JoinHandle;
 use url::Url;
@@ -22,9 +21,8 @@ impl TestApp {
         let proxy = ProxyClient::new();
         let app = make_router(db, http, proxy, &config);
 
-        let port = pick_unused_port().expect("No free ports found");
-        let bind_host = format!("127.0.0.1:{port}");
-        let listener = TcpListener::bind(bind_host.parse::<SocketAddr>().unwrap()).unwrap();
+        let listener = TcpListener::bind("127.0.0.1:0").expect("Could not bind ephemeral socket");
+        let addr = listener.local_addr().unwrap();
         let server = tokio::spawn(async move {
             axum::Server::from_tcp(listener)
                 .unwrap()
@@ -34,7 +32,7 @@ impl TestApp {
         });
 
         TestApp {
-            base_url: Url::parse(&format!("http://{bind_host}")).unwrap(),
+            base_url: Url::parse(&format!("http://{addr}")).unwrap(),
             client: reqwest::Client::new(),
             server,
         }
