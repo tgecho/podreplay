@@ -127,28 +127,37 @@ impl FeedUrl {
 
         let urls = find_feed_links(&mut reader, first.url.as_str())
             .pipe(prioritize_and_dedup_feed_urls)
-            .take(5); // limit how many things we're willing to try
+            .take(5);
 
+        let mut top: Option<FeedSummary> = None;
         for url in urls {
             tracing::debug!("Attempting to autodiscover from {}", url);
-            let attempt = url.get(client, None).await.ok().and_then(|fetched| {
-                FeedSummary::new(fetched.url.to_string(), &mut fetched.body.reader()).ok()
-            });
-            // we will keep trying until we find a feed that results in a valid summary
-            if let Some(summary) = attempt {
-                // checking .is_empty() allows us to skip non-podcast feeds
-                if !summary.is_empty() {
-                    tracing::debug!("Autodiscovered from {}", url);
-                    return Ok(Autodiscovered {
-                        summary,
-                        etag: None,
-                    });
-                }
+            if let Some(candidate) = get_summary(client, url).await {
+                match &top {
+                    Some(t) if candidate.len() > t.len() => {
+                        top.replace(candidate);
+                    }
+                    None => {
+                        top.replace(candidate);
+                    }
+                    _ => {}
+                };
             }
         }
 
-        Err(AutodiscoveryException::Failed)
+        top.map_or(Err(AutodiscoveryException::Failed), |summary| {
+            Ok(Autodiscovered {
+                summary,
+                etag: None,
+            })
+        })
     }
+}
+
+async fn get_summary(client: &HttpClient, url: FeedUrl) -> Option<FeedSummary> {
+    url.get(client, None).await.ok().and_then(|fetched| {
+        FeedSummary::new(fetched.url.to_string(), &mut fetched.body.reader()).ok()
+    })
 }
 
 fn find_feed_links<R: BufRead>(reader: &mut R, origin: &str) -> impl Iterator<Item = FeedUrl> {

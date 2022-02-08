@@ -49,7 +49,7 @@
         <h3>Does everything look OK?</h3>
         <p>
           It looks like you entered the link to the podcast page rather than to the actual feed.
-          That's fine! I found this link which seems to be a feed:
+          That's fine! I found this link which seems to work:
         </p>
         <p><code>{feed.uri}</code></p>
         <p>
