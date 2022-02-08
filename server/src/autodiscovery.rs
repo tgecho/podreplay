@@ -256,7 +256,7 @@ fn prioritize_and_dedup_feed_urls<I: Iterator<Item = FeedUrl>>(
 lazy_static! {
     static ref GOOGLE_URL_RE: Regex = Regex::new(r#"\.google\.com/feed/(?P<feed>\w+)\b"#).unwrap();
     static ref ITUNES_URL_RE: Regex =
-        Regex::new(r#"\.apple\.com/\w+/podcast/[^/]+/id(?P<id>\w+)\b"#).unwrap();
+        Regex::new(r#"\.apple\.com/(\w+/)?podcast/[^/]+/id(?P<id>\w+)\b"#).unwrap();
 }
 
 fn get_google_podcast_feed_url(url: &str) -> Option<Url> {
@@ -307,6 +307,17 @@ mod test {
                     .unwrap()
             ),
             FeedUrl::ApplePodcastId("917918570".to_string())
+        );
+    }
+
+    #[test]
+    fn extract_apple_podcast_id_from_new_style_2() {
+        assert_eq!(
+            FeedUrl::new(
+                Url::parse("https://podcasts.apple.com/podcast/the-memory-palace/id299436963")
+                    .unwrap()
+            ),
+            FeedUrl::ApplePodcastId("299436963".to_string())
         );
     }
 
