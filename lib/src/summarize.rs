@@ -14,15 +14,20 @@ struct PartialItem<'a> {
     id: Option<String>,
     title: Option<String>,
     timestamp: Option<DateTime<Utc>>,
+    had_enclosure: bool,
 }
 
 impl<'a> PartialItem<'a> {
     fn complete(self) -> Option<SummaryItem> {
-        Some(SummaryItem {
-            title: self.title?,
-            id: self.id?,
-            timestamp: self.timestamp?,
-        })
+        if self.had_enclosure {
+            Some(SummaryItem {
+                title: self.title?,
+                id: self.id?,
+                timestamp: self.timestamp?,
+            })
+        } else {
+            None
+        }
     }
 }
 
@@ -110,6 +115,7 @@ pub fn summarize_feed<R: BufRead>(
                         id: None,
                         title: None,
                         timestamp: None,
+                        had_enclosure: false,
                     });
                 }
                 b"guid" | b"id" => {
@@ -161,6 +167,21 @@ pub fn summarize_feed<R: BufRead>(
                         marked_private = block.to_ascii_lowercase() == "yes"
                     }
                 }
+                b"enclosure" | b"link" => {
+                    if is_audio_enclosure(&start) {
+                        if let Some(item) = &mut partial_item {
+                            item.had_enclosure = true;
+                        }
+                    }
+                }
+                _ => {}
+            },
+            Ok(Event::Empty(empty)) => match empty.name() {
+                b"enclosure" | b"link" if is_audio_enclosure(&empty) => {
+                    if let Some(item) = &mut partial_item {
+                        item.had_enclosure = true;
+                    }
+                }
                 _ => {}
             },
             Ok(Event::End(end)) => {
@@ -186,6 +207,23 @@ pub fn summarize_feed<R: BufRead>(
         Err(SummarizeError::NotAFeed)
     } else {
         Ok((results, feed_title, marked_private))
+    }
+}
+
+pub fn is_audio_enclosure(start: &BytesStart) -> bool {
+    let mut rel_enclosure = false;
+    let mut type_audio = false;
+    for attr in start.attributes().filter_map(|a| a.ok()) {
+        if attr.key == b"rel" {
+            rel_enclosure = attr.value.starts_with(b"enclosure");
+        } else if attr.key == b"type" {
+            type_audio = attr.value.starts_with(b"audio/");
+        }
+    }
+    match start.name() {
+        b"enclosure" => type_audio,
+        b"link" => type_audio && rel_enclosure,
+        _ => false,
     }
 }
 

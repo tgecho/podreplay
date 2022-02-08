@@ -1,5 +1,5 @@
 use crate::reschedule::Reschedule;
-use crate::summarize::read_contents;
+use crate::summarize::{is_audio_enclosure, read_contents};
 use chrono::{DateTime, SecondsFormat, Utc};
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
 use quick_xml::Reader;
@@ -137,6 +137,7 @@ fn rewrite_or_skip_item<B: BufRead, W: Write>(
     let mut target_timestamp: Option<DateTime<Utc>> = None;
     let mut had_id = false;
     let mut had_timestamp = false;
+    let mut had_enclosure = false;
     loop {
         match reader.read_event(&mut buf) {
             Ok(Event::End(end)) if end.name() == item_tag => {
@@ -144,7 +145,7 @@ fn rewrite_or_skip_item<B: BufRead, W: Write>(
                 // and timestamp. I can imagine some random feeds missing one of
                 // these things, but any sane podcast feed should have them. If
                 // an item doesn't, we just skip it.
-                if had_id && had_timestamp {
+                if had_id && had_timestamp && had_enclosure {
                     writer.write(Event::Start(start))?;
                     for ev in events {
                         writer.write(ev)?;
@@ -192,10 +193,26 @@ fn rewrite_or_skip_item<B: BufRead, W: Write>(
                             skipped_timestamp = Some((events.len(), start.to_owned()));
                         }
                     }
+                    b"enclosure" | b"link" => {
+                        if is_audio_enclosure(&start) {
+                            had_enclosure = true;
+                        }
+                        events.push(Event::Start(start.into_owned()));
+                    }
                     _ => {
                         events.push(Event::Start(start.into_owned()));
                     }
                 };
+            }
+            Ok(Event::Empty(empty)) => {
+                match empty.name() {
+                    b"enclosure" | b"link" if is_audio_enclosure(&empty) => {
+                        had_enclosure = true;
+                    }
+                    _ => {}
+                };
+
+                events.push(Event::Empty(empty.into_owned()));
             }
             Ok(ev) => {
                 events.push(ev.into_owned());
