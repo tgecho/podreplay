@@ -3,7 +3,7 @@ use diligent_date_parser::parse_date;
 use kuchiki::{parse_html, traits::TendrilSink};
 use quick_xml::events::{BytesStart, Event};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, io::BufRead, str::from_utf8};
+use std::{collections::HashMap, io::BufRead};
 use thiserror::Error;
 
 use crate::CachedEntry;
@@ -128,8 +128,7 @@ pub fn summarize_feed<R: BufRead>(
                     }
                 }
                 b"title" => {
-                    let name = start.name().to_owned();
-                    if let Ok(title) = reader.read_text(name, &mut buf) {
+                    if let Ok(title) = read_contents(&mut reader, &start) {
                         if let Some(item) = &mut partial_item {
                             item.title = Some(title);
                         } else {
@@ -240,15 +239,16 @@ pub fn read_contents<R: BufRead>(
     loop {
         match reader.read_event(&mut id_buf)? {
             Event::Text(bytes) | Event::CData(bytes) => {
-                if let Ok(frag) = from_utf8(&bytes) {
+                if let Ok(frag) = bytes.unescape_and_decode(reader) {
                     id.push_str(frag.trim());
                 }
             }
             Event::End(end) if end.name() == start.name() => break,
             Event::Eof => {
-                return Err(quick_xml::Error::UnexpectedEof(
-                    "while attempting to get guid".to_string(),
-                ))
+                return Err(quick_xml::Error::UnexpectedEof(format!(
+                    "while attempting to get {:?}",
+                    start.name()
+                )))
             }
             _ => return Err(quick_xml::Error::TextNotFound),
         }
