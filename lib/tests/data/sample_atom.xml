@@ -17,5 +17,6 @@
         <id>urn:uuid:1225c695-cfb8-4ebb-aaaa-80da344efa6a</id>
         <updated>2003-12-13T18:30:02Z</updated>
         <summary>Some text.</summary>
+        <link rel="enclosure" href="https://example.com/fake_episode1.mp3" type="audio/mpeg" />
     </entry>
 </feed>
