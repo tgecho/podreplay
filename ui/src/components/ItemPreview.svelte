@@ -57,6 +57,8 @@
           {/if}
         </td>
       </tr>
+    {:else}
+      <tr><td colspan="4" class="empty">No episodes found</td></tr>
     {/each}
   </tbody>
 </table>
@@ -90,6 +92,10 @@
   thead .last {
     vertical-align: middle;
     position: relative;
+  }
+  .empty {
+    text-align: center;
+    padding: 2em;
   }
   thead .first sup,
   thead .last sup {
