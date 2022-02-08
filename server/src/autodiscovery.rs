@@ -25,18 +25,13 @@ use crate::{
 pub enum FeedUrl {
     Unknown(Url),
     GoogleLink(Url),
-    MetaLink(Url),
-    AHref(Url),
     ApplePodcastId(String),
 }
 
 impl Display for FeedUrl {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            FeedUrl::Unknown(url)
-            | FeedUrl::GoogleLink(url)
-            | FeedUrl::MetaLink(url)
-            | FeedUrl::AHref(url) => {
+            FeedUrl::Unknown(url) | FeedUrl::GoogleLink(url) => {
                 write!(f, "{}", url.as_str())
             }
             FeedUrl::ApplePodcastId(id) => write!(f, "ApplePodcastId:{}", id),
@@ -90,10 +85,9 @@ impl FeedUrl {
         etag: Option<String>,
     ) -> Result<Fetched, FetchException> {
         match self {
-            FeedUrl::Unknown(url)
-            | FeedUrl::GoogleLink(url)
-            | FeedUrl::MetaLink(url)
-            | FeedUrl::AHref(url) => client.get(url.as_str(), etag).await,
+            FeedUrl::Unknown(url) | FeedUrl::GoogleLink(url) => {
+                client.get(url.as_str(), etag).await
+            }
             FeedUrl::ApplePodcastId(id) => {
                 let api_url =
                     format!("https://itunes.apple.com/lookup?media=podcast&entity=podcast&id={id}");
@@ -162,7 +156,7 @@ fn find_feed_links<R: BufRead>(reader: &mut R, origin: &str) -> impl Iterator<It
         .from_utf8()
         .read_from(reader)
         .ok()
-        .and_then(|doc| {
+        .map(|doc| {
             let base_url = doc
                 .select_first("base")
                 .ok()
@@ -176,22 +170,7 @@ fn find_feed_links<R: BufRead>(reader: &mut R, origin: &str) -> impl Iterator<It
 
             let mut links = Vec::new();
 
-            if let Ok(meta_links) = doc.select("link[rel=\"alternate\"]") {
-                for link in meta_links {
-                    let attr = link.attributes.borrow();
-                    let is_a_feed = attr.get("type").map_or(false, |t| {
-                        t == "application/rss+xml" || t == "application/atom+xml"
-                    });
-                    if is_a_feed {
-                        if let Some(href) = attr.get("href") {
-                            let url = base.parse(href).ok()?;
-                            links.push(FeedUrl::MetaLink(url));
-                        }
-                    }
-                }
-            }
-
-            if let Ok(a_links) = doc.select("a[href]") {
+            if let Ok(a_links) = doc.select("a, link") {
                 for link in a_links {
                     let attrs = link.attributes.borrow();
                     if let Some(url) = attrs
@@ -203,10 +182,10 @@ fn find_feed_links<R: BufRead>(reader: &mut R, origin: &str) -> impl Iterator<It
                             FeedUrl::Unknown(url) => {
                                 lazy_static! {
                                     static ref MAYBE_FEED_RE: Regex =
-                                        Regex::new(r#"(?i)\b(feed|subscribe|rss)\b"#).unwrap();
+                                        Regex::new(r#"(?i)\b(feed|subscribe|rss|atom)\b"#).unwrap();
                                 }
                                 if MAYBE_FEED_RE.is_match(&link.as_node().to_string()) {
-                                    links.push(FeedUrl::AHref(url));
+                                    links.push(FeedUrl::Unknown(url));
                                 }
                             }
                             known => {
@@ -217,7 +196,7 @@ fn find_feed_links<R: BufRead>(reader: &mut R, origin: &str) -> impl Iterator<It
                 }
             }
 
-            Some(links)
+            links
         })
         .unwrap_or_default()
         .into_iter()
@@ -230,25 +209,16 @@ fn prioritize_and_dedup_feed_urls<I: Iterator<Item = FeedUrl>>(
         // Google podcast links can be decoded without http requests and they
         // pretty unambigously contain the podcast feed URL
         FeedUrl::GoogleLink(_) => 0,
-        // The fact that they have this meta tag is a strong signal, let's try
-        // it before moving on.
-        FeedUrl::MetaLink(_) => 1,
         // This requires a lookup of the ID to get the final feed URL, but it's
         // a pretty reliable method.
-        FeedUrl::ApplePodcastId(_) => 2,
-        // This is a bit riskier since it could be some other random page, even
-        // to a different show, but sometimes it's all we have to go on.
-        FeedUrl::AHref(_) => 3,
+        FeedUrl::ApplePodcastId(_) => 1,
         // ¯\_(ツ)_/¯
-        FeedUrl::Unknown(_) => 4,
+        FeedUrl::Unknown(_) => 2,
     })
     // we may have found the same feed URL and/or Apple podcast ID multiple
     // times, so we dedup by the captured string.
     .unique_by(|url| match url {
-        FeedUrl::MetaLink(url)
-        | FeedUrl::GoogleLink(url)
-        | FeedUrl::AHref(url)
-        | FeedUrl::Unknown(url) => url.to_string(),
+        FeedUrl::GoogleLink(url) | FeedUrl::Unknown(url) => url.to_string(),
         FeedUrl::ApplePodcastId(id) => id.to_string(),
     })
 }
@@ -352,15 +322,15 @@ mod test {
         assert_eq!(
             found,
             vec![
-                FeedUrl::MetaLink(Url::parse("http://example.com/relative.xml").unwrap()),
-                FeedUrl::MetaLink(Url::parse("http://example.org/absolute.xml").unwrap()),
+                FeedUrl::Unknown(Url::parse("http://example.com/relative.xml").unwrap()),
+                FeedUrl::Unknown(Url::parse("http://example.org/absolute.xml").unwrap()),
                 FeedUrl::ApplePodcastId("917918570".to_string()),
                 FeedUrl::GoogleLink(
                     Url::parse("https://feeds.thisiscriminal.com/CriminalShow").unwrap()
                 ),
-                FeedUrl::AHref(Url::parse("http://example.com/relative.xml").unwrap()),
-                FeedUrl::AHref(Url::parse("http://example.org/absolute.xml").unwrap()),
-                FeedUrl::AHref(Url::parse("http://example.com/feed.xml").unwrap()),
+                FeedUrl::Unknown(Url::parse("http://example.com/relative.xml").unwrap()),
+                FeedUrl::Unknown(Url::parse("http://example.org/absolute.xml").unwrap()),
+                FeedUrl::Unknown(Url::parse("http://example.com/feed.xml").unwrap()),
             ]
         );
     }
@@ -378,18 +348,19 @@ mod test {
             <a href="feed.xml">Rss</a>
         "#;
         let found: Vec<_> = find_feed_links(&mut html.as_bytes(), "http://example.com").collect();
+        dbg!(found.len());
         assert_eq!(
             found,
             vec![
-                FeedUrl::MetaLink(Url::parse("http://example.org/relative.xml").unwrap()),
-                FeedUrl::MetaLink(Url::parse("http://example.com/absolute.xml").unwrap()),
+                FeedUrl::Unknown(Url::parse("http://example.org/relative.xml").unwrap()),
+                FeedUrl::Unknown(Url::parse("http://example.com/absolute.xml").unwrap()),
                 FeedUrl::ApplePodcastId("917918570".to_string()),
                 FeedUrl::GoogleLink(
                     Url::parse("https://feeds.thisiscriminal.com/CriminalShow").unwrap()
                 ),
-                FeedUrl::AHref(Url::parse("http://example.org/relative.xml").unwrap()),
-                FeedUrl::AHref(Url::parse("http://example.com/absolute.xml").unwrap()),
-                FeedUrl::AHref(Url::parse("http://example.org/feed.xml").unwrap()),
+                FeedUrl::Unknown(Url::parse("http://example.org/relative.xml").unwrap()),
+                FeedUrl::Unknown(Url::parse("http://example.com/absolute.xml").unwrap()),
+                FeedUrl::Unknown(Url::parse("http://example.org/feed.xml").unwrap()),
             ]
         );
     }
@@ -397,15 +368,15 @@ mod test {
     #[test]
     fn dedup_links() {
         let links: Vec<_> = [
-            FeedUrl::MetaLink(Url::parse("http://example.com/relative.xml").unwrap()),
-            FeedUrl::MetaLink(Url::parse("http://example.com/absolute.xml").unwrap()),
+            FeedUrl::Unknown(Url::parse("http://example.com/relative.xml").unwrap()),
+            FeedUrl::Unknown(Url::parse("http://example.com/absolute.xml").unwrap()),
             FeedUrl::ApplePodcastId("917918570".to_string()),
             FeedUrl::GoogleLink(
                 Url::parse("https://feeds.thisiscriminal.com/CriminalShow").unwrap(),
             ),
-            FeedUrl::AHref(Url::parse("http://example.com/relative.xml").unwrap()),
-            FeedUrl::AHref(Url::parse("http://example.com/absolute.xml").unwrap()),
-            FeedUrl::AHref(Url::parse("http://example.com/feed.xml").unwrap()),
+            FeedUrl::Unknown(Url::parse("http://example.com/relative.xml").unwrap()),
+            FeedUrl::Unknown(Url::parse("http://example.com/absolute.xml").unwrap()),
+            FeedUrl::Unknown(Url::parse("http://example.com/feed.xml").unwrap()),
         ]
         .into_iter()
         .pipe(prioritize_and_dedup_feed_urls)
@@ -417,10 +388,10 @@ mod test {
                 FeedUrl::GoogleLink(
                     Url::parse("https://feeds.thisiscriminal.com/CriminalShow").unwrap()
                 ),
-                FeedUrl::MetaLink(Url::parse("http://example.com/relative.xml").unwrap()),
-                FeedUrl::MetaLink(Url::parse("http://example.com/absolute.xml").unwrap()),
                 FeedUrl::ApplePodcastId("917918570".to_string()),
-                FeedUrl::AHref(Url::parse("http://example.com/feed.xml").unwrap()),
+                FeedUrl::Unknown(Url::parse("http://example.com/relative.xml").unwrap()),
+                FeedUrl::Unknown(Url::parse("http://example.com/absolute.xml").unwrap()),
+                FeedUrl::Unknown(Url::parse("http://example.com/feed.xml").unwrap()),
             ]
         );
     }
