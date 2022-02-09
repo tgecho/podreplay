@@ -1,6 +1,6 @@
 #![allow(clippy::large_enum_variant)]
 
-use std::net::IpAddr;
+use std::{net::IpAddr, time::Duration};
 
 use axum::body::Bytes;
 use headers::{HeaderName, HeaderValue};
@@ -54,9 +54,11 @@ pub enum FetchException {
 
 impl HttpClient {
     pub fn new(user_agent: String, analytics_target: Option<String>) -> Self {
-        let client = ClientBuilder::new(reqwest::Client::new())
-            .with(TracingMiddleware)
-            .build();
+        let client = reqwest::ClientBuilder::new()
+            .timeout(Duration::from_secs(30))
+            .build()
+            .expect("Failed to construct http client");
+        let client = ClientBuilder::new(client).with(TracingMiddleware).build();
         HttpClient {
             client,
             user_agent,
