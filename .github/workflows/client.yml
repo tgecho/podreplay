@@ -2,23 +2,22 @@ name: Client
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
-    - name: Use Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: 16.x
-        cache: 'pnpm'
-    - run: npm install -g pnpm
-    - run: pnpm install
-    - run: pnpm build
-    - run: pnpm test
+      - uses: actions/checkout@v3
+      - name: Use Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 17.x
+          cache: "pnpm"
+      - run: npm install -g pnpm
+      - run: pnpm install
+      - run: pnpm build
+      - run: pnpm test
