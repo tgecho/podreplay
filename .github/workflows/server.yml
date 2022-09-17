@@ -8,6 +8,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  DATABASE_URL: sqlite://./test.sqlite
 
 jobs:
   build:
@@ -15,6 +16,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+      - name: Prepare
+        run: sqlx database create
+        run: sqlx migrate run
       - name: Build
         run: cargo build --verbose
       - name: Run tests
