@@ -43,7 +43,7 @@ jobs:
 
   server-test:
     runs-on: ubuntu-latest
-    needs: [rust-build]
+    needs: [server-build]
 
     steps:
       - uses: actions/checkout@v3
