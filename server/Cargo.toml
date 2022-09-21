@@ -20,7 +20,7 @@ thiserror = "1.0.30"
 chronoutil = "0.2.3"
 sqlx = {git = "https://github.com/tgecho/sqlx", branch = "sqlite-datetime-utc", default-features = false, features=["sqlite", "chrono", "macros", "migrate", "runtime-tokio-rustls"]}
 headers = "0.3.5"
-regex = "1.5.4"
+regex = "1.5.5"
 lazy_static = "1.4.0"
 tower = "0.4.11"
 tower-http = { version = "0.2.0", features = ["trace", "cors", "fs"] }
