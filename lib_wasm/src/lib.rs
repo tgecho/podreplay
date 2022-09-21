@@ -7,12 +7,6 @@ use chrono::{DateTime, TimeZone, Utc};
 use podreplay_lib::{parse_rule, reschedule_feed, Item};
 use wasm_bindgen::prelude::*;
 
-// When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
-// allocator.
-#[cfg(feature = "wee_alloc")]
-#[global_allocator]
-static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
-
 fn dt_from_unix_epoch(seconds: f64) -> DateTime<Utc> {
     Utc.timestamp(seconds as i64, 0)
 }
