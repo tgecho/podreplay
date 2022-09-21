@@ -27,15 +27,22 @@ jobs:
             ~/.cargo/git/db/
             target/
             test.sqlite
-      - name: Install
+      - name: Install prerequites
         run: |
-          export DATABASE_URL="sqlite://$GITHUB_WORKSPACE/test.sqlite"
           cargo install sqlx-cli --no-default-features --features sqlite,rustls
           cargo install wasm-pack
+
+      - name: Build server
+        run: |
+          export DATABASE_URL="sqlite://$GITHUB_WORKSPACE/test.sqlite"
           sqlx database create
           sqlx migrate run
           cargo build
+
+      - name: Build .wasm module
+        run: |
           wasm-pack build --target web lib_wasm
+
       - uses: actions/upload-artifact@v2
         with:
           name: lib_wasm
