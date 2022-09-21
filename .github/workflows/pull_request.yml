@@ -75,9 +75,6 @@ jobs:
   client:
     runs-on: ubuntu-latest
     needs: [server-build]
-    defaults:
-      run:
-        working-directory: ui
 
     steps:
       - name: Install Node.js
@@ -97,6 +94,8 @@ jobs:
         run: |
           echo "::set-output name=pnpm_cache_dir::$(pnpm store path)"
 
+      - uses: actions/checkout@v3
+
       - uses: actions/cache@v3
         name: Setup pnpm cache
         with:
@@ -108,10 +107,16 @@ jobs:
       - uses: actions/download-artifact@v2
         with:
           name: lib_wasm
+          path: lib_wasm/pkg
 
       - name: Install dependencies
+        working-directory: ui
         run: pnpm install
+
       - name: Build
+        working-directory: ui
         run: pnpm build
+
       - name: Test
+        working-directory: ui
         run: pnpm test
