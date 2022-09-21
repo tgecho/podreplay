@@ -1,4 +1,4 @@
-name: Server
+name: Test
 
 on:
   push:
@@ -28,7 +28,7 @@ jobs:
             target/
             test.sqlite
       - name: Install
-        run: cargo install
+        run: |
           export DATABASE_URL="sqlite://$GITHUB_WORKSPACE/test.sqlite"
           cargo install sqlx-cli --no-default-features --features sqlite,rustls
           cargo install wasm-pack
