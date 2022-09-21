@@ -25,6 +25,7 @@ jobs:
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
+            ~/.cargo/.crates*
             target/
             test.sqlite
       - name: Install prerequites
