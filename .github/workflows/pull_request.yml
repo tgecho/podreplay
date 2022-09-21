@@ -67,7 +67,9 @@ jobs:
             target/
             test.sqlite
       - name: Test Server
-        run: cargo test
+        run: |
+          export DATABASE_URL="sqlite://$GITHUB_WORKSPACE/test.sqlite"
+          cargo test
 
   client:
     runs-on: ubuntu-latest
