@@ -10,25 +10,95 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  server-build:
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v3
       - uses: actions/cache@v3
         with:
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
           path: |
             ~/.cargo/bin/
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      - name: Run
-        run: |
+            test.sqlite
+      - name: Install
+        run: cargo install
           export DATABASE_URL="sqlite://$GITHUB_WORKSPACE/test.sqlite"
           cargo install sqlx-cli --no-default-features --features sqlite,rustls
+          cargo install wasm-pack
           sqlx database create
           sqlx migrate run
           cargo build
-          cargo test
+          wasm-pack build --target web lib_wasm
+      - uses: actions/upload-artifact@v2
+        with:
+          name: lib_wasm
+          path: lib_wasm/pkg
+
+  server-test:
+    runs-on: ubuntu-latest
+    needs: [rust-build]
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/cache@v3
+        with:
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+            test.sqlite
+      - name: Test Server
+        run: cargo test
+
+  client:
+    runs-on: ubuntu-latest
+    needs: [server-build]
+
+    steps:
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 17
+
+      - uses: pnpm/action-setup@v2.0.1
+        name: Install pnpm
+        id: pnpm-install
+        with:
+          version: 7
+          run_install: false
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        run: |
+          echo "::set-output name=pnpm_cache_dir::$(pnpm store path)"
+
+      - uses: actions/cache@v3
+        name: Setup pnpm cache
+        with:
+          path: ${{ steps.pnpm-cache.outputs.pnpm_cache_dir }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - uses: actions/download-artifact@v2
+        with:
+          name: lib_wasm
+
+      - name: Install dependencies
+        run: pnpm install
+      - name: Build
+        run: pnpm build
+      - name: Test
+        run: pnpm test
