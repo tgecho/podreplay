@@ -35,8 +35,8 @@
   <div class="warnings">
     <h3>Warnings and Caveats</h3>
     <p>
-      This is <em>brand new</em> software built for fun. While a good faith effort is made to preserve
-      the integrity of the original feed, compatibilty cannot be guaranteed.
+      This was built for fun and not thoroughly tested. While a good faith effort is made to
+      preserve the integrity of the original feed, compatibilty cannot be guaranteed.
     </p>
     <p>
       Nothing is rehosted and caching is minimal, so there isn't much that can be done if the
