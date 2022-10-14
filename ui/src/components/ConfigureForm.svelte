@@ -167,6 +167,7 @@
     flex-wrap: wrap;
     flex: 1 20em;
     justify-content: flex-start;
+    align-items: center;
   }
   fieldset {
     margin: 0;
