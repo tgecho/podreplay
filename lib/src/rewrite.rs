@@ -2,37 +2,12 @@ use crate::reschedule::Reschedule;
 use crate::summarize::{is_audio_enclosure, read_contents};
 use chrono::{DateTime, SecondsFormat, Utc};
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
-use quick_xml::Reader;
+use quick_xml::{Reader, Writer};
 use std::io::{BufRead, Write};
 use thiserror::Error;
 
 // TODO: Consider how/if we can rewrite (or omit?) the
 // pubDate/lastPubDate/ttl/skipHours/skipDays channel elements
-
-struct Writer<W: Write> {
-    writer: quick_xml::Writer<W>,
-}
-
-impl<W: Write> Writer<W> {
-    fn new(writer: quick_xml::Writer<W>) -> Self {
-        Writer { writer }
-    }
-
-    fn write(&mut self, ev: Event) -> Result<(), quick_xml::Error> {
-        match ev {
-            Event::CData(data) => {
-                // CData contents are being escaped improperly. In order to get
-                // a 1:1 output, we need to undo this (and trick quick-xml)
-                // before writing.
-                // https://github.com/tafia/quick-xml/issues/311
-                let unescaped = data.unescaped()?.into_owned();
-                let ev = Event::CData(BytesText::from_escaped(&unescaped));
-                self.writer.write_event(ev)
-            }
-            ev => self.writer.write_event(ev),
-        }
-    }
-}
 
 #[derive(Error, Debug)]
 pub enum RewriteError {
@@ -62,19 +37,18 @@ pub fn rewrite_feed<R: BufRead>(
 
 fn write_itunes_block<W: Write>(writer: &mut Writer<W>) -> Result<(), RewriteError> {
     for ev in element(BytesStart::borrowed_name(b"itunes:block"), "Yes".into()) {
-        writer.write(ev)?;
+        writer.write_event(ev)?;
     }
     Ok(())
 }
 
 fn rewrite_feed_to_writer<R: BufRead, W: Write>(
     mut reader: quick_xml::Reader<R>,
-    writer: quick_xml::Writer<W>,
+    mut writer: quick_xml::Writer<W>,
     reschedule: &Reschedule<String>,
     mark_as_private: bool,
     custom_title: &Option<String>,
 ) -> Result<(), RewriteError> {
-    let mut writer = Writer::new(writer);
     let mut buf = Vec::new();
     loop {
         match reader.read_event(&mut buf) {
@@ -84,14 +58,14 @@ fn rewrite_feed_to_writer<R: BufRead, W: Write>(
                     rewrite_or_skip_item(start, &mut reader, &mut writer, reschedule)?;
                 }
                 b"channel" if mark_as_private => {
-                    writer.write(Event::Start(start))?;
+                    writer.write_event(Event::Start(start))?;
                     write_itunes_block(&mut writer)?;
                 }
                 b"feed" if mark_as_private => {
                     let is_atom = start.attributes().filter_map(|a| a.ok()).any(|a| {
                         a.key == b"xmlns" && a.value.as_ref() == b"http://www.w3.org/2005/Atom"
                     });
-                    writer.write(Event::Start(start.clone()))?;
+                    writer.write_event(Event::Start(start.clone()))?;
                     if is_atom {
                         write_itunes_block(&mut writer)?;
                     }
@@ -104,15 +78,15 @@ fn rewrite_feed_to_writer<R: BufRead, W: Write>(
                         .or_else(|| existing_title.map(|title| format!("{title} (PodReplay)")))
                         .unwrap_or_else(|| "Untitled Podreplay Feed".to_string());
                     for ev in element(start, title) {
-                        writer.write(ev)?;
+                        writer.write_event(ev)?;
                     }
                 }
                 _ => {
-                    writer.write(Event::Start(start))?;
+                    writer.write_event(Event::Start(start))?;
                 }
             },
             Ok(ev) => {
-                writer.write(ev).map_err(RewriteError::Write)?;
+                writer.write_event(ev).map_err(RewriteError::Write)?;
             }
             Err(e) => {
                 tracing::error!("Error at position {}: {:?}", reader.buffer_position(), e);
@@ -146,11 +120,11 @@ fn rewrite_or_skip_item<B: BufRead, W: Write>(
                 // these things, but any sane podcast feed should have them. If
                 // an item doesn't, we just skip it.
                 if had_id && had_timestamp && had_enclosure {
-                    writer.write(Event::Start(start))?;
+                    writer.write_event(Event::Start(start))?;
                     for ev in events {
-                        writer.write(ev)?;
+                        writer.write_event(ev)?;
                     }
-                    writer.write(Event::End(end))?;
+                    writer.write_event(Event::End(end))?;
                 }
                 return Ok(());
             }

@@ -31,7 +31,7 @@ impl<'a> PartialItem<'a> {
     }
 }
 
-#[derive(PartialEq, Debug, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct SummaryItem {
     pub id: String,
     pub title: String,
@@ -238,8 +238,13 @@ pub fn read_contents<R: BufRead>(
     let mut id = String::new();
     loop {
         match reader.read_event(&mut id_buf)? {
-            Event::Text(bytes) | Event::CData(bytes) => {
+            Event::Text(bytes) => {
                 if let Ok(frag) = bytes.unescape_and_decode(reader) {
+                    id.push_str(frag.trim());
+                }
+            }
+            Event::CData(bytes) => {
+                if let Ok(frag) = bytes.partial_escape().unescape_and_decode(reader) {
                     id.push_str(frag.trim());
                 }
             }

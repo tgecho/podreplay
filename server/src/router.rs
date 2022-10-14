@@ -5,7 +5,7 @@ use crate::proxy::{proxy_to, ProxyClient};
 use crate::replay;
 use crate::summary;
 use axum::routing::{get_service, post};
-use axum::{routing::get, AddExtensionLayer, Router};
+use axum::{routing::get, Extension, Router};
 use hyper::StatusCode;
 use tower_http::{services::ServeDir, trace::TraceLayer};
 
@@ -40,8 +40,8 @@ pub fn make_router(db: Db, http: HttpClient, proxy: ProxyClient, config: &Config
                     .expect("Invalid URI"),
             )),
         )
-        .layer(AddExtensionLayer::new(db))
-        .layer(AddExtensionLayer::new(http))
-        .layer(AddExtensionLayer::new(proxy))
+        .layer(Extension(db))
+        .layer(Extension(http))
+        .layer(Extension(proxy))
         .layer(TraceLayer::new_for_http())
 }

@@ -26,7 +26,7 @@ impl TestApp {
         let server = tokio::spawn(async move {
             axum::Server::from_tcp(listener)
                 .unwrap()
-                .serve(app.into_make_service_with_connect_info::<SocketAddr, _>())
+                .serve(app.into_make_service_with_connect_info::<SocketAddr>())
                 .await
                 .unwrap();
         });
