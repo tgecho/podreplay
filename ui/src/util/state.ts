@@ -1,7 +1,7 @@
 import { debounce } from 'lodash-es';
 import { page } from '$app/stores';
 import { goto } from '$app/navigation';
-import { browser } from '$app/env';
+import { browser } from '$app/environment';
 
 import { get, writable } from 'svelte/store';
 import type { Writable } from 'svelte/store';
