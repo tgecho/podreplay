@@ -36,7 +36,7 @@ async fn main() {
     let app = make_router(db, http, proxy, &config);
     let addr = SocketAddr::new(config.host, config.port);
     Server::bind(&addr)
-        .serve(app.into_make_service_with_connect_info::<SocketAddr, _>())
+        .serve(app.into_make_service_with_connect_info::<SocketAddr>())
         .await
         .unwrap_or_else(|err| panic!("Failed to start server {} ({})", addr, err));
 }
