@@ -49,27 +49,6 @@ jobs:
         with:
           name: lib_wasm
           path: lib_wasm/pkg
-    runs-on: ubuntu-latest
-    needs: [server-build]
-
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/cache@v3
-        with:
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-            test.sqlite
-      - name: Test Server
-        run: |
-          export DATABASE_URL="sqlite://$GITHUB_WORKSPACE/test.sqlite"
-          cargo test
 
   client:
     runs-on: ubuntu-latest
