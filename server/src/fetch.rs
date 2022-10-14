@@ -58,7 +58,9 @@ impl HttpClient {
             .timeout(Duration::from_secs(30))
             .build()
             .expect("Failed to construct http client");
-        let client = ClientBuilder::new(client).with(TracingMiddleware).build();
+        let client = ClientBuilder::new(client)
+            .with(TracingMiddleware::default())
+            .build();
         HttpClient {
             client,
             user_agent,

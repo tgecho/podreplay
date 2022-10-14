@@ -23,7 +23,7 @@ pub struct FeedMeta {
     pub etag: Option<String>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct CachedEntry {
     pub id: String,
     pub feed_id: i64,

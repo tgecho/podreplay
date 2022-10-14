@@ -70,6 +70,8 @@ jobs:
       - name: Test Server
         run: |
           export DATABASE_URL="sqlite://$GITHUB_WORKSPACE/test.sqlite"
+          sqlx database create
+          sqlx migrate run
           cargo test
 
   client:
