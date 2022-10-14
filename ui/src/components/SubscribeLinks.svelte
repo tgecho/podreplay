@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { derived, Readable } from 'svelte/store';
-  import { sortedQueryString, State } from '../util/state';
+  import { derived, type Readable } from 'svelte/store';
+  import { sortedQueryString, type State } from '../util/state';
 
   export let state: Readable<State>;
   export let feedUri: string;
