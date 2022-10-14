@@ -10,7 +10,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  server-build:
+  server:
     runs-on: ubuntu-latest
 
     steps:
@@ -39,6 +39,7 @@ jobs:
           sqlx database create
           sqlx migrate run
           cargo build
+          cargo test
 
       - name: Build .wasm module
         run: |
@@ -48,8 +49,6 @@ jobs:
         with:
           name: lib_wasm
           path: lib_wasm/pkg
-
-  server-test:
     runs-on: ubuntu-latest
     needs: [server-build]
 
@@ -74,7 +73,7 @@ jobs:
 
   client:
     runs-on: ubuntu-latest
-    needs: [server-build]
+    needs: [server]
 
     steps:
       - name: Install Node.js
