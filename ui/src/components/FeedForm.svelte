@@ -1,9 +1,9 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
-  import { browser } from '$app/env';
+  import { browser } from '$app/environment';
   import { writable } from 'svelte/store';
-  import { queryToState, sortedQueryString, State } from '../util/state';
+  import { queryToState, sortedQueryString, type State } from '../util/state';
 
   function localState() {
     return writable<State>(queryToState($page.url.searchParams));
