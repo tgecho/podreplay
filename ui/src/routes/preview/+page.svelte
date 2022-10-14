@@ -1,13 +1,13 @@
 <script lang="ts">
-  import Header from '../components/Header.svelte';
-  import FeedForm from '../components/FeedForm.svelte';
-  import ItemPreview from '../components/ItemPreview.svelte';
-  import ConfigureForm from '../components/ConfigureForm.svelte';
-  import { queryStore } from '../util/state';
-  import { feedSummaryStore } from '../util/fetchFeedSummary';
-  import SubscribeLinks from '../components/SubscribeLinks.svelte';
-  import Footer from '../components/Footer.svelte';
-  import { browser } from '$app/env';
+  import Header from '../../components/Header.svelte';
+  import FeedForm from '../../components/FeedForm.svelte';
+  import ItemPreview from '../../components/ItemPreview.svelte';
+  import ConfigureForm from '../../components/ConfigureForm.svelte';
+  import { queryStore } from '../../util/state';
+  import { feedSummaryStore } from '../../util/fetchFeedSummary';
+  import SubscribeLinks from '../../components/SubscribeLinks.svelte';
+  import Footer from '../../components/Footer.svelte';
+  import { browser } from '$app/environment';
 
   const state = queryStore();
   const feed = feedSummaryStore(state);
