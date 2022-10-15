@@ -4,9 +4,10 @@ import adapter from '@sveltejs/adapter-static';
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
   compilerOptions: { hydratable: true },
-  adapter: adapter(),
   preprocess: preprocess(),
-  ssr: false,
+  kit: {
+    adapter: adapter(),
+  },
 };
 
 export default config;

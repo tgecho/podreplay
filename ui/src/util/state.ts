@@ -43,11 +43,7 @@ export type State = Rule & {
 };
 
 export function queryStore(): Writable<State> {
-  // I'm not sure why, but the $page.url.searchParams always seems empty when
-  // initially loading. I think maybe it's because the static adapter doesn't
-  // assume any params so it's trying to hydrate in the same state. The effect
-  // was to trigger a redirect and lose our query params, so let's not do that.
-  const query = browser ? new URLSearchParams(location.search) : get(page).url.searchParams;
+  const query = browser ? get(page).url.searchParams : new URLSearchParams();
 
   const store = writable<State>(queryToState(query));
 

@@ -6,7 +6,7 @@
   import { queryToState, sortedQueryString, type State } from '../util/state';
 
   function localState() {
-    return writable<State>(queryToState($page.url.searchParams));
+    return writable<State>(queryToState(browser ? $page.url.searchParams : new URLSearchParams()));
   }
 
   export let state = localState();
