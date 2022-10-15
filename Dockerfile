@@ -35,15 +35,16 @@ FROM node:17 AS frontend
 
 WORKDIR /usr/src
 
-RUN npm install -g pnpm \
-    && npm config set store-dir /usr/src/ui/node_modules/.pnpm-store
+RUN npm install -g pnpm@7.13.4
 COPY --from=server_and_wasm /usr/src/lib_wasm/pkg ./lib_wasm/pkg
 COPY pnpm-*.yaml ./
 COPY ui ./ui
 WORKDIR /usr/src/ui
 RUN --mount=type=cache,target=/usr/src/ui/node_modules \
-    pnpm install
-RUN --mount=type=cache,target=/usr/src/ui/node_modules \
+    --mount=type=cache,target=/usr/src/ui/.svelte-kit \
+    --mount=type=cache,target=/usr/src/node_modules/.pnpm \
+    --mount=type=cache,target=/root/.local/share/pnpm/store \
+    pnpm install && \
     pnpm build
 
 ######################
