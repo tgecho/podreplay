@@ -1,6 +1,6 @@
 #######################
 # Build Server and WASM
-FROM rust:1.58 AS server_and_wasm
+FROM rust:1.64 AS server_and_wasm
 
 WORKDIR /usr/src
 
@@ -55,7 +55,7 @@ RUN apt update -y && apt install ca-certificates -y && apt clean -y
 
 WORKDIR /app
 
-COPY --from=litestream/litestream:0.3.9 /usr/local/bin/litestream /app/litestream
+COPY --from=litestream/litestream:0.3.7 /usr/local/bin/litestream /app/litestream
 
 # Copy server binary
 COPY --from=server_and_wasm /usr/local/cargo/bin/podreplay ./
