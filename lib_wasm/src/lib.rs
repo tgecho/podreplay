@@ -8,7 +8,7 @@ use podreplay_lib::{parse_rule, reschedule_feed, Item};
 use wasm_bindgen::prelude::*;
 
 fn dt_from_unix_epoch(seconds: f64) -> DateTime<Utc> {
-    Utc.timestamp(seconds as i64, 0)
+    Utc.timestamp_opt(seconds as i64, 0).unwrap()
 }
 
 struct TinyItem {
