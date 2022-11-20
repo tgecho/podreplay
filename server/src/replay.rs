@@ -36,8 +36,7 @@ pub struct ReplayQuery {
     last: Option<DateTime<Utc>>,
     uri: String,
     title: Option<String>,
-    #[cfg(test)]
-    now: DateTime<Utc>,
+    now: Option<DateTime<Utc>>,
 }
 
 #[tracing::instrument]
@@ -48,10 +47,13 @@ pub async fn get<'a>(
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     request: Request<Body>,
 ) -> Result<Replay, ReplayError> {
-    #[cfg(test)]
-    let now = query.now;
-    #[cfg(not(test))]
-    let now = Utc::now();
+    let clock_now = Utc::now();
+    let now = query.now.unwrap_or(clock_now);
+    if (now - clock_now).num_days() > 365 {
+        return Err(ReplayError::InvalidRequest(
+            "Please don't specify a ?now beyond 1 year".to_string(),
+        ));
+    }
 
     http.record_event("replay", &addr.ip(), &request);
     let headers = request.headers();
@@ -242,6 +244,7 @@ impl IntoResponse for ReplayError {
         tracing::error!(?self);
         match self {
             Self::NotModified { headers } => (headers, StatusCode::NOT_MODIFIED).into_response(),
+            Self::InvalidRequest(message) => (StatusCode::BAD_REQUEST, message).into_response(),
             Self::FetchError(_) | Self::ParseError(_) => StatusCode::BAD_GATEWAY.into_response(),
             _ => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
         }

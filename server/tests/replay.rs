@@ -111,6 +111,16 @@ async fn returns_304_if_expires_is_in_the_future() {
 
 #[traced_test]
 #[tokio::test]
+async fn returns_400_if_now_is_too_far_in_the_future() {
+    let app = TestApp::new().await;
+    let path =
+        "/replay?rule=1w&start=2021-10-23T01:09:00Z&now=2024-11-23T01:09:00Z&uri=/doesnotmatter";
+    let response = app.get(path).body(Body::empty()).send().await.unwrap();
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+#[traced_test]
+#[tokio::test]
 async fn returns_304_if_feed_returns_304() {
     let replay_etag = r#""2021-10-23T01:09:00Z|feed_etag""#;
     let feed_etag = r#""feed_etag""#;
