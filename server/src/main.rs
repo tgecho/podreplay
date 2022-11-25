@@ -23,6 +23,8 @@ async fn main() {
     }
     tracing_subscriber::fmt::init();
 
+    tracing::info!("{:?}", config);
+
     let db = Db::new(config.database_url.clone())
         .await
         .unwrap_or_else(|err| panic!("Failed to open {} ({})", config.database_url, err));
