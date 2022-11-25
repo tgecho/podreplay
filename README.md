@@ -1,5 +1,7 @@
 [PodReplay](https://podreplay.com) is a service that allows replaying podcast feeds as if they just started.
 
+Behind the scenes post: https://esimmler.com/slowly-listening-to-old-podcasts/
+
 # Development
 
 ## Install
