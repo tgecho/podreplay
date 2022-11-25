@@ -1,6 +1,6 @@
 #######################
 # Build Server and WASM
-FROM rust:1.64 AS server_and_wasm
+FROM rust:1.65 AS server_and_wasm
 
 WORKDIR /usr/src
 
@@ -31,11 +31,11 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
 
 #######################
 # Build Svelte frontend
-FROM node:17 AS frontend
+FROM node:18 AS frontend
 
 WORKDIR /usr/src
 
-RUN npm install -g pnpm@7.13.4
+RUN npm install -g pnpm@7.17.0
 COPY --from=server_and_wasm /usr/src/lib_wasm/pkg ./lib_wasm/pkg
 COPY pnpm-*.yaml ./
 COPY ui ./ui
