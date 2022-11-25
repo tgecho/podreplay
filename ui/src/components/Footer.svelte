@@ -20,10 +20,16 @@
     {/each}and more.
   </p>
   <p>
-    While this app is &copy; 2021 Erik Simmler, no claims are made to the contents of any replayed
-    podcasts.
+    While this app is &copy; 2021-{new Date().getFullYear()} Erik Simmler, no claims are made to the
+    contents of any replayed podcasts.
   </p>
-  <p><a href="mailto:erik@podreplay.com">Contact Me</a></p>
+  <p>
+    I make no promises or warranties, but you can <a href="https://github.com/tgecho/esimmler.com"
+      >file an issue on GitHub</a
+    >
+    or
+    <a href="mailto:erik@podreplay.com">contact me</a>
+  </p>
 </footer>
 
 <style>
