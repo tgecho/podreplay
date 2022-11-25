@@ -1,6 +1,7 @@
 {
   "name": "podreplay_ui",
   "version": "0.0.1",
+  "license": "AGPL-3.0-or-later",
   "scripts": {
     "preinstall": "npx only-allow pnpm",
     "dev": "vite dev",
