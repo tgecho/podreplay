@@ -55,7 +55,6 @@ pub async fn get<'a>(
         ));
     }
 
-    http.record_event("replay", &addr.ip(), &request);
     let headers = request.headers();
 
     let if_none_match = headers.get_str("if-none-match");

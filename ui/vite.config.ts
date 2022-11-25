@@ -12,7 +12,6 @@ const config = {
     proxy: {
       '/replay': 'http://localhost:8080',
       '/summary': 'http://localhost:8080',
-      '/plsbl.js': 'http://localhost:8080',
     },
   },
 };

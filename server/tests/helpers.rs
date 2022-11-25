@@ -1,6 +1,4 @@
-use podreplay::{
-    config::Config, db::Db, fetch::HttpClient, proxy::ProxyClient, router::make_router,
-};
+use podreplay::{config::Config, db::Db, fetch::HttpClient, router::make_router};
 use std::net::{SocketAddr, TcpListener};
 use tokio::task::JoinHandle;
 use url::Url;
@@ -17,9 +15,8 @@ impl TestApp {
         let db = Db::new("sqlite::memory:".to_string()).await.unwrap();
         db.migrate().await.unwrap();
 
-        let http = HttpClient::new(config.user_agent.clone(), None);
-        let proxy = ProxyClient::new();
-        let app = make_router(db, http, proxy, &config);
+        let http = HttpClient::new(config.user_agent.clone());
+        let app = make_router(db, http, &config);
 
         let listener = TcpListener::bind("127.0.0.1:0").expect("Could not bind ephemeral socket");
         let addr = listener.local_addr().unwrap();

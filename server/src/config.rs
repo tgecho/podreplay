@@ -14,7 +14,6 @@ pub struct Config {
     pub port: u16,
     pub user_agent: String,
     pub assets_path: String,
-    pub analytics_target: Option<String>,
 }
 
 impl Default for Config {
@@ -26,7 +25,6 @@ impl Default for Config {
             port: 8080,
             user_agent: "podreplay.com".to_string(),
             assets_path: "ui".to_string(),
-            analytics_target: None,
         }
     }
 }

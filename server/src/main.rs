@@ -4,7 +4,6 @@ use axum::Server;
 use podreplay::config::Config;
 use podreplay::db::Db;
 use podreplay::fetch::HttpClient;
-use podreplay::proxy::ProxyClient;
 use podreplay::router::make_router;
 
 #[tokio::main]
@@ -30,10 +29,9 @@ async fn main() {
 
     db.migrate().await.expect("Failed to run migrations");
 
-    let http = HttpClient::new(config.user_agent.clone(), config.analytics_target.clone());
-    let proxy = ProxyClient::new();
+    let http = HttpClient::new(config.user_agent.clone());
 
-    let app = make_router(db, http, proxy, &config);
+    let app = make_router(db, http, &config);
     let addr = SocketAddr::new(config.host, config.port);
     Server::bind(&addr)
         .serve(app.into_make_service_with_connect_info::<SocketAddr>())

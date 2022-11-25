@@ -1,14 +1,11 @@
 #![allow(clippy::large_enum_variant)]
 
-use std::{net::IpAddr, time::Duration};
+use std::time::Duration;
 
 use axum::body::Bytes;
-use headers::{HeaderName, HeaderValue};
-use hyper::{header, Body, Request, StatusCode};
-use lazy_static::lazy_static;
+use hyper::{header, StatusCode};
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
 use reqwest_tracing::TracingMiddleware;
-use serde_json::json;
 use thiserror::Error;
 use url::Url;
 
@@ -18,7 +15,6 @@ use crate::helpers::HeaderMapUtils;
 pub struct HttpClient {
     user_agent: String,
     client: ClientWithMiddleware,
-    analytics_target: Option<String>,
 }
 
 impl std::fmt::Debug for HttpClient {
@@ -53,7 +49,7 @@ pub enum FetchException {
 }
 
 impl HttpClient {
-    pub fn new(user_agent: String, analytics_target: Option<String>) -> Self {
+    pub fn new(user_agent: String) -> Self {
         let client = reqwest::ClientBuilder::new()
             .timeout(Duration::from_secs(30))
             .build()
@@ -61,11 +57,7 @@ impl HttpClient {
         let client = ClientBuilder::new(client)
             .with(TracingMiddleware::default())
             .build();
-        HttpClient {
-            client,
-            user_agent,
-            analytics_target,
-        }
+        HttpClient { client, user_agent }
     }
 
     #[tracing::instrument(level = "debug")]
@@ -106,32 +98,5 @@ impl HttpClient {
             content_type,
             url,
         })
-    }
-
-    pub fn record_event(&self, name: &str, client_addr: &IpAddr, req: &Request<Body>) {
-        if let Some(analytics_target) = &self.analytics_target {
-            lazy_static! {
-                static ref NOT_SENT: HeaderValue = "not sent".parse().unwrap();
-            }
-
-            let user_agent = req.headers().get(header::USER_AGENT).unwrap_or(&NOT_SENT);
-            let report = self
-                .client
-                .get(analytics_target)
-                .header(
-                    "X-Forwarded-For".parse::<HeaderName>().unwrap(),
-                    client_addr.to_string(),
-                )
-                .header(header::USER_AGENT, user_agent)
-                .header(header::CONTENT_TYPE, "application/json")
-                .body(
-                    json!({
-                        "name": name,
-                        "url": req.uri().to_string(),
-                    })
-                    .to_string(),
-                );
-            tokio::spawn(report.send());
-        }
     }
 }

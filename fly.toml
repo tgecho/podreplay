@@ -6,9 +6,6 @@ kill_signal = "SIGINT"
 kill_timeout = 5
 processes = []
 
-[env]
-PODREPLAY_ANALYTICS_TARGET = "https://plausible.io/api/event"
-
 
 [experimental]
   allowed_public_ports = []
