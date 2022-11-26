@@ -2,6 +2,8 @@
 
 Behind the scenes post: https://esimmler.com/slowly-listening-to-old-podcasts/
 
+[![Build](https://github.com/tgecho/podreplay/actions/workflows/build.yml/badge.svg)](https://github.com/tgecho/podreplay/actions/workflows/build.yml)
+
 # Development
 
 ## Install
