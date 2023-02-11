@@ -1,4 +1,5 @@
 use async_recursion::async_recursion;
+use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use hyper::body::Buf;
 use itertools::Itertools;
 use kuchiki::{parse_html, traits::TendrilSink};
@@ -240,7 +241,7 @@ lazy_static! {
 
 fn get_google_podcast_feed_url(url: &str) -> Option<Url> {
     let base64_feed_url = GOOGLE_URL_RE.captures(url)?.name("feed")?.as_str();
-    let feed_url_bytes = base64::decode(base64_feed_url).ok()?;
+    let feed_url_bytes = base64.decode(base64_feed_url).ok()?;
     let feed_url = from_utf8(&feed_url_bytes).ok()?;
     feed_url.parse().ok()
 }
