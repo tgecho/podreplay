@@ -58,7 +58,6 @@ pub fn reschedule(
     let (rescheduled, _) = reschedule_feed(&items, rule, start, None, None, first, last);
 
     (0..length)
-        .into_iter()
         .map(|index| {
             let timestamp = rescheduled.get(&index);
             timestamp.map_or(0.0, |ts| ts.timestamp() as f64)
