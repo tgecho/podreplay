@@ -30,8 +30,7 @@ impl Db {
             uri
         };
 
-        let mut options = SqliteConnectOptions::from_str(&uri)?;
-        options
+        let options = SqliteConnectOptions::from_str(&uri)?
             .log_statements(LevelFilter::Debug)
             .log_slow_statements(LevelFilter::Warn, Duration::from_millis(10));
         let pool = SqlitePool::connect_with(options).await?;
@@ -77,8 +76,7 @@ impl Db {
             etag
         )
         .fetch_one(&self.pool)
-        .await?
-        .ok_or(sqlx::Error::RowNotFound)?;
+        .await?;
         sqlx::query_as!(FeedMeta, "SELECT * FROM feeds WHERE id = ?", id)
             .fetch_one(&self.pool)
             .await
