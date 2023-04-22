@@ -11,8 +11,9 @@ use tracing_test::traced_test;
 #[tokio::test]
 async fn returns_200_for_atom() {
     let xml = include_str!("../../lib/tests/data/sample_atom.xml");
-    let mock = mockito::mock("GET", "/hello").with_body(xml).create();
-    let mock_uri = format!("{}/hello", &mockito::server_url());
+    let mut server = mockito::Server::new();
+    let mock = server.mock("GET", "/hello").with_body(xml).create();
+    let mock_uri = format!("{}/hello", &server.url());
 
     let app = TestApp::new().await;
 
@@ -47,8 +48,9 @@ async fn returns_200_for_atom() {
 #[tokio::test]
 async fn returns_200_for_rss() {
     let xml = include_str!("../../lib/tests/data/sample_rss_2.0.xml");
-    let mock = mockito::mock("GET", "/hello").with_body(xml).create();
-    let mock_uri = format!("{}/hello", &mockito::server_url());
+    let mut server = mockito::Server::new();
+    let mock = server.mock("GET", "/hello").with_body(xml).create();
+    let mock_uri = format!("{}/hello", &server.url());
 
     let app = TestApp::new().await;
 
@@ -125,12 +127,13 @@ async fn returns_304_if_feed_returns_304() {
     let replay_etag = r#""2021-10-23T01:09:00Z|feed_etag""#;
     let feed_etag = r#""feed_etag""#;
 
-    let mock = mockito::mock("GET", "/returns_304")
+    let mut server = mockito::Server::new();
+    let mock = server.mock("GET", "/returns_304")
         .match_header("If-None-Match", feed_etag)
         .with_header("ETag", feed_etag)
         .with_status(304)
         .create();
-    let mock_uri = format!("{}/returns_304", &mockito::server_url());
+    let mock_uri = format!("{}/returns_304", &server.url());
 
     let app = TestApp::new().await;
 
