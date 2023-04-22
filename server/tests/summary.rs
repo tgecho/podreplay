@@ -11,8 +11,9 @@ use tracing_test::traced_test;
 #[tokio::test]
 async fn returns_200() {
     let xml = include_str!("../../lib/tests/data/sample_rss_2.0.xml");
-    let mock = mockito::mock("GET", "/hello").with_body(xml).create();
-    let mock_uri = format!("{}/hello", &mockito::server_url());
+    let mut server = mockito::Server::new();
+    let mock = server.mock("GET", "/hello").with_body(xml).create();
+    let mock_uri = format!("{}/hello", &server.url());
 
     let app = TestApp::new().await;
 
@@ -47,10 +48,11 @@ async fn returns_200() {
 #[traced_test]
 #[tokio::test]
 async fn follows_link_meta_in_html() {
-    let mock_html_uri = format!("{}/hello.html", &mockito::server_url());
-    let mock_xml_uri = format!("{}/hello.xml", &mockito::server_url());
+    let mut server = mockito::Server::new();
+    let mock_html_uri = format!("{}/hello.html", &server.url());
+    let mock_xml_uri = format!("{}/hello.xml", &server.url());
 
-    let mock_html = mockito::mock("GET", "/hello.html")
+    let mock_html = server.mock("GET", "/hello.html")
         .with_body(format!(
             r#"
                 <html>
@@ -65,7 +67,7 @@ async fn follows_link_meta_in_html() {
             "#
         ))
         .create();
-    let mock_xml = mockito::mock("GET", "/hello.xml")
+    let mock_xml = server.mock("GET", "/hello.xml")
         .with_body(include_str!("../../lib/tests/data/sample_rss_2.0.xml"))
         .create();
 

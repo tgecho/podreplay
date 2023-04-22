@@ -14,7 +14,7 @@ default = ["console_error_panic_hook"]
 
 [dependencies]
 podreplay_lib = { path = "../lib" }
-wasm-bindgen = { version = "0.2.83", features = ["serde-serialize"] }
+wasm-bindgen = { version = "0.2.84", features = ["serde-serialize"] }
 chrono = { version = "0.4.23", features = ["serde"] }
 
 # The `console_error_panic_hook` crate provides better debugging of panics by
@@ -24,4 +24,4 @@ chrono = { version = "0.4.23", features = ["serde"] }
 console_error_panic_hook = { version = "0.1.7", optional = true }
 
 [dev-dependencies]
-wasm-bindgen-test = "0.3.33"
+wasm-bindgen-test = "0.3.34"
