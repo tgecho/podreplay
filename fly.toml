@@ -1,42 +1,41 @@
-# fly.toml file generated for podreplay on 2022-01-01T23:10:07-05:00
+# fly.toml app configuration file generated for podreplay on 2023-05-25T22:11:51-04:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
 
 app = "podreplay"
-
+primary_region = "iad"
 kill_signal = "SIGINT"
-kill_timeout = 5
-processes = []
-
+kill_timeout = "5s"
 
 [experimental]
-  allowed_public_ports = []
   auto_rollback = true
 
 [[services]]
+  protocol = "tcp"
   internal_port = 8080
   processes = ["app"]
-  protocol = "tcp"
-  script_checks = []
 
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
   [services.concurrency]
+    type = "connections"
     hard_limit = 25
     soft_limit = 20
-    type = "connections"
-
-  [[services.ports]]
-    handlers = ["http"]
-    port = 80
-
-  [[services.ports]]
-    handlers = ["tls", "http"]
-    port = 443
 
   [[services.http_checks]]
-    interval = 10000
+    interval = "10s"
+    timeout = "2s"
     grace_period = "5s"
+    restart_limit = 0
     method = "get"
     path = "/"
     protocol = "http"
-    timeout = 2000
 
 [[statics]]
   guest_path = "/ui/build"
