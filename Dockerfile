@@ -1,6 +1,6 @@
 #######################
 # Build Server and WASM
-FROM rust:1.65 AS server_and_wasm
+FROM rust:1.70 AS server_and_wasm
 
 WORKDIR /usr/src
 
@@ -35,7 +35,7 @@ FROM node:18 AS frontend
 
 WORKDIR /usr/src
 
-RUN npm install -g pnpm@7.17.0
+RUN npm install -g pnpm@8.6.3
 COPY --from=server_and_wasm /usr/src/lib_wasm/pkg ./lib_wasm/pkg
 COPY pnpm-*.yaml ./
 COPY ui ./ui
@@ -44,7 +44,7 @@ RUN --mount=type=cache,target=/usr/src/ui/node_modules \
     --mount=type=cache,target=/usr/src/ui/.svelte-kit \
     --mount=type=cache,target=/usr/src/node_modules/.pnpm \
     --mount=type=cache,target=/root/.local/share/pnpm/store \
-    pnpm install && \
+    pnpm install --frozen-lockfile && \
     pnpm build
 
 ######################
