@@ -11,7 +11,7 @@ use serde::Deserialize;
 use std::{
     fmt::Display,
     hash::Hash,
-    io::{BufRead, Cursor, Seek},
+    io::{BufRead, Cursor},
     str::from_utf8,
 };
 use thiserror::Error;
@@ -115,17 +115,15 @@ impl FeedUrl {
         // if the initial request fails, there isn't much we can do
         let first = self.get(client, etag).await?;
 
-        let mut reader = Cursor::new(first.body);
         // if we're able to parse a valid feed summary, return it
-        if let Ok(summary) = FeedSummary::new(first.url.to_string(), &mut reader) {
+        if let Ok(summary) = FeedSummary::new(first.url.to_string(), &first.body) {
             return Ok(Autodiscovered {
                 summary,
                 etag: first.etag,
             });
         }
-        // otherwise rewind the reader so we can search it as html
-        reader.rewind()?;
 
+        let mut reader = Cursor::new(first.body);
         let urls = find_feed_links(&mut reader, first.url.as_str())
             .pipe(prioritize_and_dedup_feed_urls)
             .take(5);
@@ -156,9 +154,10 @@ impl FeedUrl {
 }
 
 async fn get_summary(client: &HttpClient, url: FeedUrl) -> Option<FeedSummary> {
-    url.get(client, None).await.ok().and_then(|fetched| {
-        FeedSummary::new(fetched.url.to_string(), &mut fetched.body.reader()).ok()
-    })
+    url.get(client, None)
+        .await
+        .ok()
+        .and_then(|fetched| FeedSummary::new(fetched.url.to_string(), &fetched.body).ok())
 }
 
 fn find_feed_links<R: BufRead>(reader: &mut R, origin: &str) -> impl Iterator<Item = FeedUrl> {

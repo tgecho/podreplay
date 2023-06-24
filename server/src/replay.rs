@@ -1,9 +1,6 @@
 #![allow(clippy::large_enum_variant)]
 
-use std::{
-    io::{Cursor, Seek},
-    net::SocketAddr,
-};
+use std::net::SocketAddr;
 
 use axum::{
     body::{Body, BoxBody},
@@ -89,9 +86,7 @@ pub async fn get<'a>(
         err => err?,
     };
 
-    let mut feed_reader = Cursor::new(fetched.body);
-    let summary = FeedSummary::new(query.uri.clone(), &mut feed_reader)?;
-    feed_reader.rewind()?;
+    let summary = FeedSummary::new(query.uri.clone(), &fetched.body)?;
 
     let (feed_meta, entries) =
         get_updated_caches(db, &query.uri, now, &fetched.etag, &summary).await?;
@@ -112,7 +107,7 @@ pub async fn get<'a>(
     );
 
     let body = rewrite_feed(
-        &mut feed_reader,
+        &fetched.body,
         &replayed,
         true,
         !summary.marked_private,
