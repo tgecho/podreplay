@@ -1,7 +1,10 @@
 use chrono::{DateTime, Utc};
 use diligent_date_parser::parse_date;
 use kuchiki::{parse_html, traits::TendrilSink};
-use quick_xml::events::{BytesStart, Event};
+use quick_xml::{
+    events::{BytesStart, Event},
+    name::QName,
+};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, io::BufRead};
 use thiserror::Error;
@@ -58,7 +61,7 @@ pub enum SummarizeError {
 }
 
 impl FeedSummary {
-    pub fn new<R: BufRead>(uri: String, reader: &mut R) -> Result<Self, SummarizeError> {
+    pub fn new(uri: String, reader: &[u8]) -> Result<Self, SummarizeError> {
         let reader = quick_xml::Reader::from_reader(reader);
         let (mut items, title, marked_private) = summarize_feed(reader)?;
         items.reverse(); // we're most likely in reverse order
@@ -96,8 +99,8 @@ impl FeedSummary {
     }
 }
 
-pub fn summarize_feed<R: BufRead>(
-    mut reader: quick_xml::Reader<R>,
+pub fn summarize_feed(
+    mut reader: quick_xml::Reader<&[u8]>,
 ) -> Result<(Vec<SummaryItem>, Option<String>, bool), SummarizeError> {
     let mut results: Vec<SummaryItem> = Vec::new();
     let mut buf: Vec<u8> = Vec::new();
@@ -107,13 +110,13 @@ pub fn summarize_feed<R: BufRead>(
     let mut marked_private = false;
 
     loop {
-        match reader.read_event(&mut buf) {
+        match reader.read_event_into(&mut buf) {
             Ok(Event::Decl(_)) => {
                 xml_decl_found = true;
             }
             Ok(Event::Eof) => break,
             Ok(Event::Start(start)) => match start.name() {
-                b"item" | b"entry" => {
+                QName(b"item") | QName(b"entry") => {
                     partial_item = Some(PartialItem {
                         start: start.to_owned(),
                         id: None,
@@ -122,12 +125,12 @@ pub fn summarize_feed<R: BufRead>(
                         had_enclosure: false,
                     });
                 }
-                b"guid" | b"id" => {
+                QName(b"guid") | QName(b"id") => {
                     if let Some(item) = &mut partial_item {
                         item.id = Some(read_contents(&mut reader, &start)?);
                     }
                 }
-                b"title" => {
+                QName(b"title") => {
                     if let Ok(title) = read_contents(&mut reader, &start) {
                         if let Some(item) = &mut partial_item {
                             item.title = Some(title);
@@ -136,11 +139,11 @@ pub fn summarize_feed<R: BufRead>(
                         }
                     }
                 }
-                b"description" => {
+                QName(b"description") => {
                     if let Some(item) = &mut partial_item {
                         if item.title.is_none() {
                             let name = start.name().to_owned();
-                            if let Ok(description) = reader.read_text(name, &mut buf) {
+                            if let Ok(description) = reader.read_text(name) {
                                 let text = html_to_text(&description);
                                 let title = if text.len() > 100 {
                                     format!("{}...", text.chars().take(90).collect::<String>())
@@ -152,11 +155,11 @@ pub fn summarize_feed<R: BufRead>(
                         }
                     }
                 }
-                b"pubDate" | b"updated" => {
+                QName(b"pubDate") | QName(b"updated") => {
                     if let Some(item) = &mut partial_item {
                         let name = start.name().to_owned();
                         if let Some(timestamp) = reader
-                            .read_text(&name, &mut buf)
+                            .read_text(name)
                             .ok()
                             .and_then(|s| parse_timestamp(&s))
                         {
@@ -164,13 +167,13 @@ pub fn summarize_feed<R: BufRead>(
                         }
                     }
                 }
-                b"itunes:block" if partial_item.is_none() => {
+                QName(b"itunes:block") if partial_item.is_none() => {
                     let name = start.name().to_owned();
-                    if let Ok(block) = reader.read_text(name, &mut buf) {
+                    if let Ok(block) = reader.read_text(name) {
                         marked_private = block.to_ascii_lowercase() == "yes"
                     }
                 }
-                b"enclosure" | b"link" => {
+                QName(b"enclosure") | QName(b"link") => {
                     if is_audio_enclosure(&start) {
                         if let Some(item) = &mut partial_item {
                             item.had_enclosure = true;
@@ -180,7 +183,7 @@ pub fn summarize_feed<R: BufRead>(
                 _ => {}
             },
             Ok(Event::Empty(empty)) => match empty.name() {
-                b"enclosure" | b"link" if is_audio_enclosure(&empty) => {
+                QName(b"enclosure") | QName(b"link") if is_audio_enclosure(&empty) => {
                     if let Some(item) = &mut partial_item {
                         item.had_enclosure = true;
                     }
@@ -217,15 +220,15 @@ pub fn is_audio_enclosure(start: &BytesStart) -> bool {
     let mut rel_enclosure = false;
     let mut type_audio = false;
     for attr in start.attributes().filter_map(|a| a.ok()) {
-        if attr.key == b"rel" {
+        if attr.key == QName(b"rel") {
             rel_enclosure = attr.value.starts_with(b"enclosure");
-        } else if attr.key == b"type" {
+        } else if attr.key == QName(b"type") {
             type_audio = attr.value.starts_with(b"audio/");
         }
     }
     match start.name() {
-        b"enclosure" => type_audio,
-        b"link" => type_audio && rel_enclosure,
+        QName(b"enclosure") => type_audio,
+        QName(b"link") => type_audio && rel_enclosure,
         _ => false,
     }
 }
@@ -237,14 +240,14 @@ pub fn read_contents<R: BufRead>(
     let mut id_buf: Vec<u8> = Vec::new();
     let mut id = String::new();
     loop {
-        match reader.read_event(&mut id_buf)? {
+        match reader.read_event_into(&mut id_buf)? {
             Event::Text(bytes) => {
-                if let Ok(frag) = bytes.unescape_and_decode(reader) {
+                if let Ok(frag) = bytes.unescape() {
                     id.push_str(frag.trim());
                 }
             }
             Event::CData(bytes) => {
-                if let Ok(frag) = bytes.partial_escape().unescape_and_decode(reader) {
+                if let Ok(frag) = bytes.partial_escape().and_then(|bt| bt.unescape()) {
                     id.push_str(frag.trim());
                 }
             }
@@ -276,16 +279,14 @@ fn html_to_text(html: &str) -> String {
 
 #[cfg(test)]
 mod test {
-    use std::io::Cursor;
-
     use super::{FeedSummary, SummaryItem};
     use crate::test_helpers::parse_dt;
     use pretty_assertions::assert_eq;
 
     #[test]
     fn atom() {
-        let xml = include_str!("../tests/data/sample_atom.xml");
-        let output = FeedSummary::new("testing".into(), &mut Cursor::new(xml)).unwrap();
+        let xml = include_bytes!("../tests/data/sample_atom.xml");
+        let output = FeedSummary::new("testing".into(), xml).unwrap();
         let expected = vec![SummaryItem {
             id: "urn:uuid:1225c695-cfb8-4ebb-aaaa-80da344efa6a".to_string(),
             title: "Atom-Powered Robots Run Amok".to_string(),
@@ -296,8 +297,8 @@ mod test {
 
     #[test]
     fn rss2() {
-        let xml = include_str!("../tests/data/sample_rss_2.0.xml");
-        let output = FeedSummary::new("testing".into(), &mut Cursor::new(xml)).unwrap();
+        let xml = include_bytes!("../tests/data/sample_rss_2.0.xml");
+        let output = FeedSummary::new("testing".into(), xml).unwrap();
         let expected = vec![
             SummaryItem {
                 id: "http://scriptingnews.userland.com/backissues/2002/09/29#When:12:59:01PM"
@@ -318,8 +319,8 @@ mod test {
 
     #[test]
     fn megaphone() {
-        let xml = include_str!("../tests/data/megaphone.xml");
-        let output = FeedSummary::new("testing".into(), &mut Cursor::new(xml)).unwrap();
+        let xml = include_bytes!("../tests/data/megaphone.xml");
+        let output = FeedSummary::new("testing".into(), xml).unwrap();
         let expected = vec![
             SummaryItem {
                 id: "612990fc-4f9c-11eb-a6af-e7830eb4fc55".to_string(),

@@ -1,7 +1,8 @@
 use crate::reschedule::Reschedule;
 use crate::summarize::{is_audio_enclosure, read_contents};
 use chrono::{DateTime, SecondsFormat, Utc};
-use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
+use quick_xml::events::{BytesStart, BytesText, Event};
+use quick_xml::name::QName;
 use quick_xml::{Reader, Writer};
 use std::io::{BufRead, Write};
 use thiserror::Error;
@@ -17,8 +18,8 @@ pub enum RewriteError {
     Write(quick_xml::Error),
 }
 
-pub fn rewrite_feed<R: BufRead>(
-    xml: R,
+pub fn rewrite_feed(
+    xml: &[u8],
     reschedule: &Reschedule<String>,
     pretty: bool,
     mark_as_private: bool,
@@ -36,14 +37,14 @@ pub fn rewrite_feed<R: BufRead>(
 }
 
 fn write_itunes_block<W: Write>(writer: &mut Writer<W>) -> Result<(), RewriteError> {
-    for ev in element(BytesStart::borrowed_name(b"itunes:block"), "Yes".into()) {
+    for ev in element(BytesStart::new("itunes:block"), "Yes".into()) {
         writer.write_event(ev)?;
     }
     Ok(())
 }
 
-fn rewrite_feed_to_writer<R: BufRead, W: Write>(
-    mut reader: quick_xml::Reader<R>,
+fn rewrite_feed_to_writer<W: Write>(
+    mut reader: quick_xml::Reader<&[u8]>,
     mut writer: quick_xml::Writer<W>,
     reschedule: &Reschedule<String>,
     mark_as_private: bool,
@@ -51,28 +52,28 @@ fn rewrite_feed_to_writer<R: BufRead, W: Write>(
 ) -> Result<(), RewriteError> {
     let mut buf = Vec::new();
     loop {
-        match reader.read_event(&mut buf) {
+        match reader.read_event_into(&mut buf) {
             Ok(Event::Eof) => break,
             Ok(Event::Start(start)) => match start.name() {
-                b"item" | b"entry" => {
+                QName(b"item") | QName(b"entry") => {
                     rewrite_or_skip_item(start, &mut reader, &mut writer, reschedule)?;
                 }
-                b"channel" if mark_as_private => {
+                QName(b"channel") if mark_as_private => {
                     writer.write_event(Event::Start(start))?;
                     write_itunes_block(&mut writer)?;
                 }
-                b"feed" if mark_as_private => {
+                QName(b"feed") if mark_as_private => {
                     let is_atom = start.attributes().filter_map(|a| a.ok()).any(|a| {
-                        a.key == b"xmlns" && a.value.as_ref() == b"http://www.w3.org/2005/Atom"
+                        a.key == QName(b"xmlns")
+                            && a.value.as_ref() == b"http://www.w3.org/2005/Atom"
                     });
                     writer.write_event(Event::Start(start.clone()))?;
                     if is_atom {
                         write_itunes_block(&mut writer)?;
                     }
                 }
-                b"title" => {
-                    let mut buf = Vec::new();
-                    let existing_title = reader.read_text(start.name(), &mut buf).ok();
+                QName(b"title") => {
+                    let existing_title = reader.read_text(start.name()).ok();
                     let title = custom_title
                         .clone()
                         .or_else(|| existing_title.map(|title| format!("{title} (PodReplay)")))
@@ -97,7 +98,7 @@ fn rewrite_feed_to_writer<R: BufRead, W: Write>(
     }
     Ok(())
 }
-
+//hello
 fn rewrite_or_skip_item<B: BufRead, W: Write>(
     start: BytesStart,
     reader: &mut Reader<B>,
@@ -113,7 +114,7 @@ fn rewrite_or_skip_item<B: BufRead, W: Write>(
     let mut had_timestamp = false;
     let mut had_enclosure = false;
     loop {
-        match reader.read_event(&mut buf) {
+        match reader.read_event_into(&mut buf) {
             Ok(Event::End(end)) if end.name() == item_tag => {
                 // We can't reasonably reschedule items without some sort of id
                 // and timestamp. I can imagine some random feeds missing one of
@@ -132,34 +133,37 @@ fn rewrite_or_skip_item<B: BufRead, W: Write>(
                 let element_tag = start.name();
                 let mut start_buf = Vec::new();
                 match element_tag {
-                    b"guid" | b"id" => {
+                    QName(b"guid") | QName(b"id") => {
                         had_id = true;
                         let guid = read_contents(reader, &start)?;
 
                         if let Some(rescheduled_timestamp) = reschedule.get(&guid) {
-                            events.extend(element(start, guid));
+                            events.extend(element(start.into_owned(), guid));
 
                             if let Some((ts_index, ts_start)) = skipped_timestamp.take() {
                                 // The original timestamp element was placed before
                                 // the guid, so we can write it now that we know the
                                 // target timestamp.
-                                let timestamp_str =
-                                    format_timestamp(ts_start.name(), rescheduled_timestamp);
+                                let timestamp_str = format_timestamp(
+                                    ts_start.name().into_inner(),
+                                    rescheduled_timestamp,
+                                );
                                 events.splice(ts_index..ts_index, element(ts_start, timestamp_str));
                             } else {
                                 target_timestamp = Some(*rescheduled_timestamp);
                             }
                         } else {
-                            reader.read_to_end(item_tag, &mut start_buf)?;
+                            reader.read_to_end_into(item_tag, &mut start_buf)?;
                             return Ok(());
                         }
                     }
-                    b"pubDate" | b"updated" => {
+                    QName(b"pubDate") | QName(b"updated") => {
                         had_timestamp = true;
-                        reader.read_to_end(element_tag, &mut start_buf)?;
+                        reader.read_to_end_into(element_tag, &mut start_buf)?;
                         if let Some(target_timestamp) = target_timestamp.take() {
-                            let timestamp_str = format_timestamp(element_tag, &target_timestamp);
-                            events.extend(element(start, timestamp_str));
+                            let timestamp_str =
+                                format_timestamp(element_tag.into_inner(), &target_timestamp);
+                            events.extend(element(start.to_owned(), timestamp_str));
                         } else {
                             // We haven't seen the guid of this item yet, so we
                             // can't know what the target timestamp is or even
@@ -167,7 +171,7 @@ fn rewrite_or_skip_item<B: BufRead, W: Write>(
                             skipped_timestamp = Some((events.len(), start.to_owned()));
                         }
                     }
-                    b"enclosure" | b"link" => {
+                    QName(b"enclosure") | QName(b"link") => {
                         if is_audio_enclosure(&start) {
                             had_enclosure = true;
                         }
@@ -180,7 +184,7 @@ fn rewrite_or_skip_item<B: BufRead, W: Write>(
             }
             Ok(Event::Empty(empty)) => {
                 match empty.name() {
-                    b"enclosure" | b"link" if is_audio_enclosure(&empty) => {
+                    QName(b"enclosure") | QName(b"link") if is_audio_enclosure(&empty) => {
                         had_enclosure = true;
                     }
                     _ => {}
@@ -207,11 +211,12 @@ fn format_timestamp(element_tag: &[u8], target_timestamp: &DateTime<Utc>) -> Str
     }
 }
 
-fn element<'a>(start: BytesStart, content: String) -> [Event<'a>; 3] {
+fn element(start: BytesStart, content: String) -> [Event; 3] {
+    let end = start.to_end().into_owned();
     [
-        Event::Start(start.to_owned()),
-        Event::Text(BytesText::from_escaped_str(content)),
-        Event::End(BytesEnd::owned(start.name().to_owned())),
+        Event::Start(start),
+        Event::Text(BytesText::from_escaped(content)),
+        Event::End(end),
     ]
 }
 
@@ -306,6 +311,14 @@ mod tests {
                 "<guid isPermaLink=\"false\">",
             )
             .replace("]]>\n            </guid>", "</guid>")
+            .replace(
+                "<itunes:name></itunes:name>",
+                "<itunes:name>\n            </itunes:name>",
+            )
+            .replace(
+                "<itunes:category text=\"History\"></itunes:category>",
+                "<itunes:category text=\"History\">\n        </itunes:category>",
+            )
             .replace(
                 "<pubDate>Wed, 15 Dec 2021 08:00:00 -0000</pubDate>",
                 "<pubDate>Sat, 15 Jan 2022 16:00:00 +0000</pubDate>",
