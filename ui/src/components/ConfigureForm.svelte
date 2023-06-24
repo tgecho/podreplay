@@ -3,7 +3,7 @@
   import type { Writable } from 'svelte/store';
   import type { State } from '../util/state';
   import type { FeedSummary } from '../util/fetchFeedSummary';
-  import { formatForInput, formatForUrl } from '../util/dates';
+  import { formatForInput } from '../util/dates';
 
   export let feed: FeedSummary;
   export let state: Writable<State>;

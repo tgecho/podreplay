@@ -53,8 +53,8 @@ export function queryStore(): Writable<State> {
         const queryString = sortedQueryString(query);
         goto(`${location.pathname}?${queryString}`, {
           replaceState: true,
-          keepfocus: true,
-          noscroll: true,
+          keepFocus: true,
+          noScroll: true,
         });
       }, 100),
     );
