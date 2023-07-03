@@ -10,7 +10,7 @@ license = "AGPL-3.0-or-later"
 
 [dependencies]
 chrono = { version = "0.4.23", features = ["serde"] }
-chronoutil = "0.2.3"
+chronoutil = "0.2.5"
 diligent-date-parser = "0.1.4"
 itertools = "0.11.0"
 kuchiki = "0.8.1"
