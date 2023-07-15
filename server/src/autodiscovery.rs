@@ -191,7 +191,7 @@ fn find_feed_links<R: BufRead>(reader: &mut R, origin: &str) -> impl Iterator<It
                             FeedUrl::Unknown(url) => {
                                 lazy_static! {
                                     static ref MAYBE_FEED_RE: Regex =
-                                        Regex::new(r#"(?i)\b(feed|subscribe|rss|atom)\b"#).unwrap();
+                                        Regex::new(r"(?i)\b(feed|subscribe|rss|atom)\b").unwrap();
                                 }
                                 if MAYBE_FEED_RE.is_match(&link.as_node().to_string()) {
                                     links.push(FeedUrl::Unknown(url));
@@ -233,9 +233,9 @@ fn prioritize_and_dedup_feed_urls<I: Iterator<Item = FeedUrl>>(
 }
 
 lazy_static! {
-    static ref GOOGLE_URL_RE: Regex = Regex::new(r#"\.google\.com/feed/(?P<feed>\w+)\b"#).unwrap();
+    static ref GOOGLE_URL_RE: Regex = Regex::new(r"\.google\.com/feed/(?P<feed>\w+)\b").unwrap();
     static ref ITUNES_URL_RE: Regex =
-        Regex::new(r#"\.apple\.com/(\w+/)?podcast/[^/]+/id(?P<id>\w+)\b"#).unwrap();
+        Regex::new(r"\.apple\.com/(\w+/)?podcast/[^/]+/id(?P<id>\w+)\b").unwrap();
 }
 
 fn get_google_podcast_feed_url(url: &str) -> Option<Url> {

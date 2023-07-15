@@ -4,6 +4,7 @@ members = [
     "lib",
     "lib_wasm"
 ]
+resolver = "2"
 
 [profile.dev.package.backtrace]
 opt-level = 3
