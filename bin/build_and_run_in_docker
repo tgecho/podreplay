@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+set -e
+
+docker build --tag podreplay .
+docker run -t -p 3000:8080 -e "CREATE_LOCAL_DB=yes" podreplay "./podreplay"

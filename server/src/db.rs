@@ -22,7 +22,7 @@ impl Debug for Db {
 }
 
 impl Db {
-    pub async fn new(uri: String) -> Result<Self, sqlx::Error> {
+    pub async fn new(uri: String, create_if_missing: bool) -> Result<Self, sqlx::Error> {
         let default_prefix = "sqlite://";
         let uri = if !uri.starts_with(default_prefix) {
             default_prefix.to_string() + &uri
@@ -32,7 +32,8 @@ impl Db {
 
         let options = SqliteConnectOptions::from_str(&uri)?
             .log_statements(LevelFilter::Debug)
-            .log_slow_statements(LevelFilter::Warn, Duration::from_millis(10));
+            .log_slow_statements(LevelFilter::Warn, Duration::from_millis(10))
+            .create_if_missing(create_if_missing);
         let pool = SqlitePool::connect_with(options).await?;
         let db = Db {
             uri: uri.clone(),

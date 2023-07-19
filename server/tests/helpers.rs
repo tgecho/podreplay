@@ -12,7 +12,7 @@ pub struct TestApp {
 impl TestApp {
     pub async fn new() -> TestApp {
         let config = Config::default();
-        let db = Db::new("sqlite::memory:".to_string()).await.unwrap();
+        let db = Db::new("sqlite::memory:".to_string(), true).await.unwrap();
         db.migrate().await.unwrap();
 
         let http = HttpClient::new(config.user_agent.clone());
