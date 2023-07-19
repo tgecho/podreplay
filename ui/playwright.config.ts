@@ -56,7 +56,7 @@ export default defineConfig({
 
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: 'cd .. && ./bin/build_and_run_in_docker',
+    command: 'docker run -t -p 3000:8080 -e "CREATE_LOCAL_DB=yes" podreplay "./podreplay"',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
   },

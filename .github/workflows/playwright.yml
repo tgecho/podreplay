@@ -4,8 +4,10 @@ on:
     branches: [main, master]
   pull_request:
     branches: [main, master]
+env:
+  DOCKER_BUILDKIT: 1
 jobs:
-  test:
+  browser-test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
     steps:
@@ -19,8 +21,10 @@ jobs:
       - name: Install Playwright Browsers
         run: pnpm exec playwright install --with-deps
         working-directory: ui
+      - name: Build Docker image
+        run: docker buildx build --tag podreplay .
       - name: Run Playwright tests
-        run: pnpm exec playwright test
+        run: docker version && pnpm exec playwright test
         working-directory: ui
       - uses: actions/upload-artifact@v3
         if: always()
