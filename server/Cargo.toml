@@ -17,7 +17,7 @@ tracing-subscriber = { version = "0.3.16", features = ["env-filter"] }
 serde = { version = "1.0.171", features = ["derive"] }
 chrono = { version = "0.4.23", features = ["serde"] }
 reqwest = { version = "0.11.14", default-features = false, features = ["rustls-tls"] }
-axum = { version = "0.6.18", features = ["headers"] }
+axum = { version = "0.6.19", features = ["headers"] }
 thiserror = "1.0.38"
 chronoutil = "0.2.5"
 sqlx = {git = "https://github.com/tgecho/sqlx", branch = "sqlite-datetime-utc", default-features = false, features=["sqlite", "chrono", "macros", "migrate", "runtime-tokio-rustls"]}
