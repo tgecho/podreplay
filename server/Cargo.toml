@@ -14,15 +14,15 @@ tokio = { version = "1.29.1", features = ["full"] }
 hyper = { version = "0.14.27", features = ["full"] }
 tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.16", features = ["env-filter"] }
-serde = { version = "1.0.171", features = ["derive"] }
+serde = { version = "1.0.179", features = ["derive"] }
 chrono = { version = "0.4.23", features = ["serde"] }
 reqwest = { version = "0.11.14", default-features = false, features = ["rustls-tls"] }
-axum = { version = "0.6.19", features = ["headers"] }
-thiserror = "1.0.38"
+axum = { version = "0.6.20", features = ["headers"] }
+thiserror = "1.0.44"
 chronoutil = "0.2.5"
 sqlx = {git = "https://github.com/tgecho/sqlx", branch = "sqlite-datetime-utc", default-features = false, features=["sqlite", "chrono", "macros", "migrate", "runtime-tokio-rustls"]}
 headers = "0.3.8"
-regex = "1.8.4"
+regex = "1.9.3"
 lazy_static = "1.4.0"
 tower = "0.4.13"
 tower-http = { version = "0.4.3", features = ["trace", "cors", "fs"] }
@@ -41,7 +41,7 @@ itertools = "0.11.0"
 
 # workaround from https://github.com/launchbadge/sqlx/issues/473#issuecomment-655517309
 [dependencies.openssl]
-version = "0.10.55"
+version = "0.10.56"
 features = ["vendored"]
 
 [dev-dependencies]
