@@ -25,9 +25,12 @@ async fn main() {
 
     tracing::info!("{:?}", config);
 
-    let db = Db::new(config.database_url.clone())
-        .await
-        .unwrap_or_else(|err| panic!("Failed to open {} ({})", config.database_url, err));
+    let db = Db::new(
+        config.database_url.clone(),
+        std::env::var_os("CREATE_LOCAL_DB") == Some("yes".into()),
+    )
+    .await
+    .unwrap_or_else(|err| panic!("Failed to open {} ({})", config.database_url, err));
 
     db.migrate().await.expect("Failed to run migrations");
 

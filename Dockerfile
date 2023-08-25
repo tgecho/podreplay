@@ -65,5 +65,20 @@ COPY --from=frontend /usr/src/ui/build ./ui
 
 COPY litestream.yml /etc/
 
-CMD ./litestream restore -v -if-db-not-exists db.sqlite && \
+# or "yes"
+ENV CREATE_LOCAL_DB="no"
+
+COPY <<EOF run.sh
+#!/usr/bin/env bash
+set -euxo pipefail
+if [ "\$CREATE_LOCAL_DB" = "yes" ]; then
+    echo "Using local DB"
+    CREATE_LOCAL_DB=yes ./podreplay
+else
+    echo "Restoring DB from backup"
+    ./litestream restore -v -if-db-not-exists db.sqlite && \
     ./litestream replicate -exec "./podreplay"
+fi
+EOF
+RUN chmod +x run.sh
+CMD ["./run.sh"]

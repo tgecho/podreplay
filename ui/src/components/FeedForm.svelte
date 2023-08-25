@@ -38,7 +38,7 @@
     <input type="date" name="start" required={true} />
     <input type="hidden" name="rule" value="1w" />
   </noscript>
-  <button disabled={browser && !uri?.trim()}>Load Podcast</button>
+  <button type="submit" disabled={browser && !uri?.trim()}>Load Podcast</button>
 </form>
 
 <style>
