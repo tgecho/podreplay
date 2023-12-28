@@ -41,7 +41,7 @@ itertools = "0.11.0"
 
 # workaround from https://github.com/launchbadge/sqlx/issues/473#issuecomment-655517309
 [dependencies.openssl]
-version = "0.10.56"
+version = "0.10.60"
 features = ["vendored"]
 
 [dev-dependencies]
